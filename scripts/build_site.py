@@ -37,6 +37,8 @@ def asset_version():
         PUBLIC / "assets/globe/night-tiles/manifest.json",
         PUBLIC / "assets/globe/earth-land-mask.webp",
         PUBLIC / "assets/hand-rig" / HAND_ATLAS,
+        PUBLIC / "assets/brand/aisle-orbital.svg",
+        PUBLIC / "assets/brand/aisle-orbital-static.svg",
     ] + sorted(
         (PUBLIC / "assets/globe/base").glob("*.webp")
     )
