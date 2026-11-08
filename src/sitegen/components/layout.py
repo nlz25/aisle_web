@@ -22,7 +22,7 @@ def header(page, site_prefix=""):
     )
     return f'''<a class="skip" href="#main">Skip to content</a>
     <header class="site-header"><div class="wrap header-inner">
-      <a class="brand" href="{site_prefix}index.html" aria-label="AISLE home"><img class="brand-logo" src="assets/brand/aisle-logo-white.svg" alt="AISLE logo" width="1226" height="222"></a>
+      <a class="brand" href="{site_prefix}index.html" aria-label="AISLE home"><img class="brand-logo brand-logo-orbital" src="assets/brand/aisle-orbital.svg" alt="AISLE orbital logo" width="1254" height="960"></a>
       <nav class="nav-links" id="main-navigation" aria-label="Main navigation">{nav}</nav>
       <div class="nav-side">
       <button class="menu-toggle" aria-controls="main-navigation" aria-expanded="false">Menu +</button></div>
@@ -82,7 +82,7 @@ def shell(page, title, description, body, version, *, site_prefix="", origin="ht
   <meta property="og:description" content="{esc(description)}">
   <meta property="og:url" content="{url}">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="icon" type="image/svg+xml" href="assets/brand/aisle-orbital-static.svg">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="canonical" href="{url}">
   {preload}
