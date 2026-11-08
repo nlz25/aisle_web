@@ -45,6 +45,11 @@
       "logo": "UCL.png",
       "en": "UCL",
       "shape": "wide"
+    },
+    {
+      "logo": "Oxford.png",
+      "en": "University of Oxford",
+      "shape": "wide"
     }
   ],
   "industry": [
