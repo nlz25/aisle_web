@@ -426,6 +426,19 @@ async function auditedTaskUpdate(env, u, task, update, action, afterAudit = []) 
   return json({ ok: true });
 }
 
+function removeTask(env, u, task, revision, action) {
+  if (revision !== String(task.revision)) staleTask();
+  const remove = env.DB.prepare(
+    'DELETE FROM tasks WHERE id=? AND user_id=? AND status=? AND revision=?',
+  ).bind(task.id, task.user_id, task.status, task.revision);
+  // A successful delete writes an audit row before queuing ZIP cleanup.
+  const cleanup = task.package_key ? [
+    env.DB.prepare('INSERT OR IGNORE INTO package_gc SELECT ?,? WHERE changes()=1')
+      .bind(task.package_key, now() + 3600),
+  ] : [];
+  return auditedTaskUpdate(env, u, task, remove, action, cleanup);
+}
+
 async function taskComments(req, env, url, u, task, reviewer = false) {
   const scope = url.searchParams.get('scope') ?? 'task';
   if (scope !== 'task' && (scope !== 'package' || task.kind !== 'wet'))
@@ -537,16 +550,8 @@ async function route(req, env) {
     if (m) {
       const t = await env.DB.prepare('SELECT * FROM tasks WHERE id=?').bind(m[1]).first();
       if (!t) fail(404, 'Task not found.');
-      if (method === 'DELETE' && !m[2]) {
-        if (url.searchParams.get('revision') !== String(t.revision)) staleTask();
-        const remove = env.DB.prepare('DELETE FROM tasks WHERE id=? AND revision=?').bind(t.id, t.revision);
-        // The audit row is written only when the task was deleted, and gates ZIP cleanup.
-        const cleanup = t.package_key ? [
-          env.DB.prepare('INSERT OR IGNORE INTO package_gc SELECT ?,? WHERE changes()=1')
-            .bind(t.package_key, now() + 3600),
-        ] : [];
-        return auditedTaskUpdate(env, u, t, remove, 'task.delete', cleanup);
-      }
+      if (method === 'DELETE' && !m[2])
+        return removeTask(env, u, t, url.searchParams.get('revision'), 'task.delete');
       if (m[2] === 'comments') return taskComments(req, env, url, u, t, true);
       if (method === 'GET' && m[2] === 'package') {
         await audit(env, u, 'package.download', t.id);
@@ -606,6 +611,10 @@ async function route(req, env) {
     .bind(match[1], u.id)
     .first();
   if (!task) fail(404, 'Task not found.');
+  if (method === 'DELETE' && !match[2]) {
+    if (task.status !== 'draft') fail(409, 'Only drafts can be discarded.');
+    return removeTask(env, u, task, url.searchParams.get('revision'), 'task.discard');
+  }
   if (match[2] === 'comments') return taskComments(req, env, url, u, task);
   if (method === 'GET' && match[2] === 'package') return download(env, task, url.searchParams.get('version'));
   if (match[2] === 'package' && ['PUT', 'DELETE'].includes(method)) {
