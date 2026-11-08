@@ -1973,5 +1973,5 @@ button {
 }
 
 /* Supplied orbital mark: keep the existing navigation height. */
-.brand-logo.brand-logo-orbital { width: 146px; height: 112px; }
-@media (max-width: 780px) { .brand-logo.brand-logo-orbital { width: 118px; height: 92px; } }
+.brand-logo.brand-logo-orbital { width: 100px; height: 76px; }
+@media (max-width: 780px) { .brand-logo.brand-logo-orbital { width: 82px; height: 64px; } }
