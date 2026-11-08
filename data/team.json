@@ -50,7 +50,8 @@
     {
       "leader": {
         "name": "Gerbrand Ceder",
-        "affiliation": "University of California, Berkeley"
+        "affiliation": "University of California, Berkeley",
+        "highlight": false
       },
       "members": [
         {

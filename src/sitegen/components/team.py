@@ -9,7 +9,7 @@ def team():
     for group in data["groups"]:
         leader = group["leader"]
         people = [{**p, "highlight": p.get("highlight", False)} for p in group["members"]]
-        lead = {**leader, "highlight": True}
+        lead = {**leader, "highlight": leader.get("highlight", True)}
         people = [lead, *people] if group.get("leader_first") else [*people, lead]
         names = "".join(
             '<li' + (' class="team-lead"' if p["highlight"] else '') + f'>{esc(p["name"])}</li>'
