@@ -78,6 +78,29 @@ function button(text, type = 'button', className) {
   return node;
 }
 
+function confirmRemoval(title, message) {
+  const dialog = element('dialog', undefined, 'contribute-card contribute-confirm');
+  dialog.setAttribute('aria-label', title);
+  const actions = element('div', undefined, 'contribute-toolbar');
+  const cancel = button('Cancel', 'button', 'secondary');
+  cancel.setAttribute('autofocus', '');
+  cancel.addEventListener('click', () => dialog.close());
+  const confirm = button(title, 'button', 'contribute-danger');
+  confirm.addEventListener('click', () => dialog.close('confirm'));
+  actions.append(cancel, confirm);
+  dialog.append(element('h3', title), element('p', message), actions);
+  root.append(dialog);
+
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => {
+      const confirmed = dialog.returnValue === 'confirm';
+      dialog.remove();
+      resolve(confirmed);
+    }, { once: true });
+    dialog.showModal();
+  });
+}
+
 function formFor(controls, label, handler) {
   const form = element('form', undefined, 'contribute-form');
   form.method = 'post';
@@ -143,9 +166,9 @@ function dateLabel(timestamp) {
   return new Date(timestamp * 1000).toLocaleDateString();
 }
 
-function details(title, child) {
+function details(title, ...children) {
   const node = element('details');
-  node.append(element('summary', title), child);
+  node.append(element('summary', title), ...children);
   return node;
 }
 
@@ -166,7 +189,7 @@ function taskDetailsForm(task, save, reviewer = false) {
   return formFor(fields, 'Save details', form => save(Object.fromEntries(form)));
 }
 
-function discussion(task, path, forFile = false) {
+function discussion(task, path, { forFile = false, panel = details('Task discussion') } = {}) {
   const endpoint = path + '/comments' + (forFile ? '?scope=package' : '?scope=task');
   const content = element('div');
   const thread = element('ol', undefined, 'contribute-comments');
@@ -235,7 +258,7 @@ function discussion(task, path, forFile = false) {
       await load();
     }));
   }
-  const panel = details(forFile ? 'ZIP comments' : 'Task discussion', content);
+  panel.append(content);
   panel.addEventListener('toggle', () => {
     if (panel.open && !loaded && !reload.disabled) load();
   });
@@ -259,38 +282,97 @@ function packagePanel(task, path, refresh, reviewer = false) {
   else if (!task.package_editable)
     panel.append(element('p', 'File changes are closed for this review status.', 'task-meta'));
 
-  if (reviewer && (task.has_package || task.package_locked)) {
+  const canManage = reviewer ? task.has_package || task.package_locked : task.package_editable;
+  const manage = details(canManage ? 'Manage ZIP' : 'ZIP comments');
+  if (reviewer && canManage) {
     const locked = !task.package_locked;
-    panel.append(formFor([], locked ? 'Lock ZIP changes' : 'Unlock ZIP changes', async () => {
+    manage.append(formFor([], locked ? 'Lock ZIP changes' : 'Unlock ZIP changes', async () => {
       await api(path + '/package-lock', { method: 'PATCH', data: { locked, revision: task.revision } });
       await refresh(locked ? 'ZIP changes locked.' : 'ZIP lock removed.', task.id);
     }));
   }
-  if (!reviewer && task.package_editable) {
+  if (!reviewer && canManage) {
     const endpoint = path + '/package?revision=' + task.revision;
     const file = input('zip', 'file');
     file.accept = '.zip,application/zip,application/x-zip-compressed';
     file.required = true;
-    panel.append(details(task.has_package ? 'Replace experiment ZIP' : 'Upload experiment ZIP', formFor([
-      element('p', 'Upload a complete ZIP archive, up to 25 MiB.'),
+    manage.append(formFor([
       field('Experiment ZIP', file),
-    ], 'Upload ZIP', async form => {
+      element('p', 'Upload one complete ZIP archive, up to 25 MiB.', 'task-meta'),
+    ], task.has_package ? 'Replace ZIP' : 'Upload ZIP', async form => {
       const archive = form.get('zip');
       if (!archive.size || !/\.zip$/i.test(archive.name) || archive.size > maxZip)
         throw new Error('Choose a non-empty ZIP archive of 25 MiB or less.');
       await api(endpoint, { method: 'PUT', file: archive });
       await refresh('ZIP saved.', task.id);
-    })));
+    }));
     if (task.has_package) {
-      panel.append(details('Remove experiment ZIP', formFor([
-        element('p', 'Remove ' + task.package_name + ' from this task. Attach a new ZIP before submitting again.'),
-      ], 'Remove ZIP', async () => {
+      const remove = formFor([], 'Remove ZIP', async () => {
+        if (!await confirmRemoval('Remove ZIP', 'Remove ' + task.package_name + ' from this task? Attach a new ZIP before submitting again.')) return;
         await api(endpoint, { method: 'DELETE' });
         await refresh('ZIP removed.', task.id);
-      })));
+      });
+      remove.querySelector('button').classList.add('secondary');
+      manage.append(remove);
     }
   }
-  panel.append(discussion(task, path, true));
+  if (canManage) manage.append(element('h5', 'ZIP comments'));
+  panel.append(discussion(task, path, { forFile: true, panel: manage }));
+  return panel;
+}
+
+function dryLabGuide(task, path, refresh) {
+  const panel = element('section', undefined, 'contribute-pr-guide');
+  const steps = element('ol');
+  steps.append(
+    element('li', 'Open a GitHub pull request with your task files.'),
+    element('li', 'Copy the template into your PR description and add the steps to reproduce your results.'),
+    element('li', 'Save the PR link below, then choose Submit for review.'),
+  );
+  const template = element('textarea', undefined, 'contribute-pr-template');
+  template.readOnly = true;
+  template.rows = 9;
+  template.value = [
+    '## AISLE Dry Lab submission',
+    '',
+    '- Task ID: `' + task.id + '`',
+    '- Task title: ' + task.title.replace(/\s+/g, ' ').trim(),
+    '',
+    '## Experiment description',
+    '',
+    task.description,
+    '',
+    '## Reproduction and validation',
+    '',
+    '<!-- Add the task directory, how to run it, and the expected result. -->',
+  ].join('\n');
+
+  const copy = button('Copy PR description', 'button', 'secondary');
+  const copied = element('p', '', 'contribute-message');
+  copied.setAttribute('role', 'status');
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(template.value);
+      showMessage('PR description copied.', false, copied);
+    } catch {
+      template.focus();
+      template.select();
+      showMessage('Template selected. Press Ctrl+C or Cmd+C to copy it.', false, copied);
+    }
+  });
+  const templateBox = element('div', undefined, 'contribute-form');
+  const copyActions = element('div', undefined, 'contribute-toolbar');
+  copyActions.append(copy, copied);
+  templateBox.append(field('PR description template', template), copyActions);
+
+  const pr = input('pr_url', 'url', task.pr_url, 500);
+  pr.required = true;
+  panel.append(element('h4', 'Submit your Dry Lab task'), steps, templateBox, formFor([
+    field('GitHub pull request URL', pr),
+  ], 'Save pull request', async form => {
+    await api(path, { method: 'PATCH', data: { pr_url: form.get('pr_url') } });
+    await refresh('Pull request saved.', task.id);
+  }));
   return panel;
 }
 
@@ -342,15 +424,7 @@ function ownerCard(task, refresh) {
       await refresh('Lab availability saved.', task.id);
     })));
   } else if (editable) {
-    const pr = input('pr_url', 'url', task.pr_url, 500);
-    pr.required = true;
-    card.append(details('Link your pull request', formFor([
-      element('p', 'Include this task ID in the description of your GitHub pull request. Paste the PR URL below.'),
-      field('GitHub pull request URL', pr),
-    ], 'Save pull request', async form => {
-      await api(path, { method: 'PATCH', data: { pr_url: form.get('pr_url') } });
-      await refresh('Pull request saved.', task.id);
-    })));
+    card.append(dryLabGuide(task, path, refresh));
   }
   card.append(discussion(task, path));
   if (editable) {
@@ -578,6 +652,15 @@ async function initAdmin() {
         await refreshTask('Review status saved.', task.id);
       })));
     }
+    const remove = formFor([], 'Delete task', async () => {
+      const confirmed = await confirmRemoval('Delete task',
+        'Delete "' + task.title + '" and its comments and attached ZIP? This cannot be undone.');
+      if (!confirmed) return;
+      await api(path + '?revision=' + task.revision, { method: 'DELETE' });
+      await refreshTask('Task deleted.');
+    });
+    remove.classList.add('contribute-task-delete');
+    card.append(remove);
     return card;
   }
 

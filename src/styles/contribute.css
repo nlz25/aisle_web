@@ -110,14 +110,24 @@ body.contribute-page {
 .contribute-task-list .task-meta { font-size: .94rem; overflow-wrap: anywhere; }
 .contribute-task-list details { margin-block: .8rem; }
 .contribute-task-list .task-status { color: var(--contribute-accent); font-weight: 650; }
-.contribute-package {
+.contribute-package, .contribute-pr-guide {
   margin-block: 1rem;
   padding: .9rem 1rem;
   border: 1px solid var(--contribute-line);
   border-radius: 6px;
 }
-.contribute-package h4 { margin: 0; }
-.contribute-package > form { margin-block: .8rem; }
+.contribute-package h4, .contribute-pr-guide h4 { margin: 0; }
+.contribute-package h5 { margin: 1.2rem 0 0; font-size: 1rem; }
+.contribute-form .contribute-pr-template { font-family: ui-monospace, monospace; font-size: .9rem; }
+.contribute-task-delete { margin-top: 1rem; }
+.contribute .contribute-task-delete button, .contribute .contribute-danger {
+  background: transparent;
+  color: #ffb4b4;
+  border-color: #ffb4b4;
+}
+.contribute-confirm { color: var(--contribute-fg); max-width: min(30rem, calc(100% - 2rem)); }
+.contribute-confirm::backdrop { background: rgb(0 0 0 / .65); }
+.contribute-confirm h3 { margin-top: 0; }
 .contribute-comments { list-style: none; padding: 0; margin-block: .8rem; }
 .contribute-comments li { padding: .75rem 0; border-top: 1px solid var(--contribute-line); }
 .contribute-comments li p { margin: .25rem 0; }
