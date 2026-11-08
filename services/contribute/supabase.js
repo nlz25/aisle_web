@@ -21,7 +21,8 @@ export function authRequest(env, path, { method = 'GET', token, data } = {}) {
     method,
     headers,
     body: data === undefined ? undefined : JSON.stringify(data),
-    redirect: 'error',
+    // Workers supports manual redirects; callers reject non-2xx responses.
+    redirect: 'manual',
   });
 }
 
@@ -75,7 +76,7 @@ function storageRequest(env, path, init = {}) {
   return fetch(env.SUPABASE_URL + '/storage/v1/object' + path, {
     ...init,
     headers: { apikey: env.SUPABASE_STORAGE_SECRET, ...init.headers },
-    redirect: 'error',
+    redirect: 'manual',
   });
 }
 
