@@ -3,14 +3,14 @@
 <circle cx="634" cy="500" r="390" stroke="#8ca8bc" stroke-opacity=".55" stroke-width="6"/>
 <g class="orbit"><circle cx="634" cy="500" r="390" stroke="url(#silver)" stroke-width="10" stroke-dasharray="520 705 300 926" transform="rotate(-65 634 500)"/><circle cx="980" cy="320" r="10" fill="#e7f4ff"/></g>
 <circle cx="634" cy="500" r="300" stroke="#aec8db" stroke-opacity=".45" stroke-width="6"/>
-<path d="M687 516C634 438 616 273 738 161" stroke="url(#silver)" stroke-width="8"/>
-<path d="M687 516C695 383 737 283 838 229" stroke="url(#silver)" stroke-width="8"/>
-<path d="M687 516C832 551 932 499 915 346" stroke="url(#silver)" stroke-width="8"/>
-<path d="M687 516C706 645 811 739 918 714" stroke="url(#silver)" stroke-width="8"/>
-<path d="M687 516C612 586 526 716 574 840" stroke="url(#silver)" stroke-width="8"/>
-<path d="M687 516C609 616 443 644 372 712" stroke="url(#silver)" stroke-width="8"/>
-<path d="M687 516C530 573 376 492 306 382" stroke="url(#silver)" stroke-width="8"/>
-<path d="M687 516C612 452 516 393 506 287" stroke="url(#silver)" stroke-width="8"/>
+<path d="M687 516C634 438 616 273 738 161" stroke="url(#silver)" stroke-width="9.2"/>
+<path d="M687 516C695 383 737 283 838 229" stroke="url(#silver)" stroke-width="9.2"/>
+<path d="M687 516C832 551 932 499 915 346" stroke="url(#silver)" stroke-width="9.2"/>
+<path d="M687 516C706 645 811 739 918 714" stroke="url(#silver)" stroke-width="9.2"/>
+<path d="M687 516C612 586 526 716 574 840" stroke="url(#silver)" stroke-width="9.2"/>
+<path d="M687 516C609 616 443 644 372 712" stroke="url(#silver)" stroke-width="9.2"/>
+<path d="M687 516C530 573 376 492 306 382" stroke="url(#silver)" stroke-width="9.2"/>
+<path d="M687 516C612 452 516 393 506 287" stroke="url(#silver)" stroke-width="9.2"/>
 <path d="M122 300L687 516L1138 87" stroke="#edf7ff" stroke-width="7"/>
 <circle cx="687" cy="516" r="15" fill="#f5fbff"/>
 </g></svg>
