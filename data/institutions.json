@@ -31,10 +31,9 @@
       "shape": ""
     },
     {
-      "logo": "AIML.png",
+      "logo": "AIML-updated.png",
       "en": "Australian Institute for Machine Learning",
-      "shape": "wide",
-      "logo_theme": "dark"
+      "shape": "wide"
     },
     {
       "logo": "AdelaideUniversity.png",
