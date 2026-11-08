@@ -55,10 +55,12 @@
       "members": [
         {
           "name": "Xu Huang",
-          "affiliation": "University of California, Berkeley"
+          "affiliation": "University of California, Berkeley",
+          "highlight": true
         }
       ],
-      "logo": "UCBerkeley.webp"
+      "logo": "UCBerkeley.webp",
+      "leader_first": true
     }
   ]
 }

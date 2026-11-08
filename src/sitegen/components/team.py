@@ -8,8 +8,13 @@ def team():
     rows = []
     for group in data["groups"]:
         leader = group["leader"]
-        names = "".join(f'<li>{esc(p["name"])}</li>' for p in group["members"])
-        names += f'<li class="team-lead">{esc(leader["name"])}</li>'
+        people = [{**p, "highlight": p.get("highlight", False)} for p in group["members"]]
+        lead = {**leader, "highlight": True}
+        people = [lead, *people] if group.get("leader_first") else [*people, lead]
+        names = "".join(
+            '<li' + (' class="team-lead"' if p["highlight"] else '') + f'>{esc(p["name"])}</li>'
+            for p in people
+        )
         rows.append(
             '<li class="team-cluster">'
             f'<div class="team-logo"><img src="assets/institutions/{esc(group["logo"])}" alt="{esc(leader["affiliation"])}" loading="lazy" decoding="async" width="160" height="84"></div>'
