@@ -56,22 +56,24 @@ access, and administrator MFA.
    here are separate URLs.
 5. Create the GitHub Actions environment contribute-production and restrict
    deployment to main. Add a required reviewer if the repository supports
-   that rule. Add these environment variables and secrets.
+   that rule. Store the eight deployment settings below as repository Actions Secrets. Keep ADMIN_USER_IDS as an optional environment variable.
 
-| GitHub environment variable | Value |
+| Repository Actions Secret | Value |
 | --- | --- |
 | CLOUDFLARE_ACCOUNT_ID | Project Cloudflare account ID |
 | CLOUDFLARE_D1_DATABASE_ID | Production D1 database ID |
 | CLOUDFLARE_WORKSPACE_ORIGIN | Standalone workers.dev origin, without a trailing slash. Leave empty for the aisle.science API route. |
 | SUPABASE_URL | Project URL, https://<project-ref>.supabase.co |
 | SUPABASE_PUBLISHABLE_KEY | Supabase sb_publishable_ key |
-| ADMIN_USER_IDS | Comma-separated Supabase user UUIDs. An empty list keeps admin access closed during initial setup. |
 
-| GitHub environment secret | Value |
+
+| Repository Actions Secret | Value |
 | --- | --- |
 | CLOUDFLARE_API_TOKEN | Project-scoped token for deploying the Worker and running D1 migrations. The same-domain option also needs Workers Routes Write in the aisle.science zone. |
 | SUPABASE_STORAGE_SECRET | Supabase sb_secret_ key for the dedicated project |
 | SESSION_ENCRYPTION_KEY | 32 random bytes encoded as 64 lowercase hexadecimal characters. Generate once with openssl rand -hex 32. |
+
+The optional environment variable ADMIN_USER_IDS contains comma-separated Supabase user UUIDs. An empty list keeps admin access closed during initial setup.
 
 Run **Deploy Contribute API** from main. On the workspace URL, verify GitHub
 sign-in, profile completion and a harmless ZIP upload. Each reviewer signs in
