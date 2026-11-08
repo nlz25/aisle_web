@@ -1,5 +1,7 @@
 """Public contribution entry and the two authenticated workspaces."""
 
+from ..components.contact import CONTACT_MAILTO
+
 
 def contribute(workspace_prefix=""):
     return f'''
@@ -27,7 +29,7 @@ def contribute(workspace_prefix=""):
       </article>
     </div>
   </section>
-  <p class="contribute-links"><a href="{workspace_prefix}contributor.html">Open your workspace</a><a href="tasks.html">Explore existing tasks</a><a href="mailto:gan@greendynamics.com.au">Contact the AISLE team</a></p>
+  <p class="contribute-links"><a href="{workspace_prefix}contributor.html">Open your workspace</a><a href="tasks.html">Explore existing tasks</a><a href="{CONTACT_MAILTO}">Contact the AISLE team</a></p>
 </main>'''
 
 
@@ -108,12 +110,18 @@ def contribute_admin():
     </form>
   </section>
   <section id="admin-panel" hidden aria-label="Administration">
-    <div class="contribute-toolbar" role="group" aria-label="Management views">
-      <button type="button" data-admin-view="tasks" aria-pressed="true">Submissions</button>
-      <button type="button" data-admin-view="users" aria-pressed="false">Users</button>
+    <div class="contribute-toolbar contribute-admin-toolbar">
+      <div role="group" aria-label="Management views">
+        <button type="button" data-admin-view="tasks" aria-pressed="true">Submissions</button>
+        <button type="button" data-admin-view="users" aria-pressed="false">Users</button>
+      </div>
+      <div role="group" aria-label="Display layout">
+        <button type="button" data-admin-mode="cards" aria-pressed="true" aria-controls="admin-items">Cards</button>
+        <button type="button" data-admin-mode="list" aria-pressed="false" aria-controls="admin-items">List</button>
+      </div>
     </div>
     <h2 id="admin-view-title">Submissions</h2>
-    <div id="admin-items" class="contribute-task-list" aria-labelledby="admin-view-title"></div>
+    <div id="admin-items" class="contribute-task-list contribute-admin-items" data-layout="cards" aria-labelledby="admin-view-title"></div>
     <div class="contribute-toolbar" aria-label="Pagination">
       <button id="admin-previous" class="secondary" type="button" disabled>Previous page</button>
       <span id="admin-page"></span>

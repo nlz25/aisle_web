@@ -442,6 +442,17 @@ function ownerCard(task, refresh) {
     });
     actions.append(submit);
   }
+  if (task.status === 'draft') {
+    const discard = formFor([], 'Discard draft', async () => {
+      const confirmed = await confirmRemoval('Discard draft',
+        'Discard "' + task.title + '" and its comments and attached ZIP? This cannot be undone.');
+      if (!confirmed) return;
+      await api(path + '?revision=' + task.revision, { method: 'DELETE' });
+      await refresh('Draft discarded.');
+    });
+    discard.querySelector('button').classList.add('contribute-danger');
+    actions.append(discard);
+  }
   card.append(actions);
   return card;
 }
@@ -590,12 +601,28 @@ async function initAdmin() {
   }
   if (!(await verifyAdmin(session))) return;
   const viewButtons = [...document.querySelectorAll('[data-admin-view]')];
+  const layoutButtons = [...document.querySelectorAll('[data-admin-mode]')];
   const previous = byId('admin-previous');
   const next = byId('admin-next');
   const items = byId('admin-items');
   let view = 'tasks';
   let page = 0;
   let loading = false;
+
+  function setLayout(layout) {
+    items.dataset.layout = layout;
+    layoutButtons.forEach(control => control.setAttribute('aria-pressed', String(control.dataset.adminMode === layout)));
+    for (const row of items.querySelectorAll(':scope > details')) row.open = layout === 'cards';
+  }
+
+  function adminRow(title, metadata, card) {
+    const row = element('details', undefined, 'contribute-admin-row');
+    row.open = items.dataset.layout === 'cards';
+    const summary = element('summary', undefined, 'contribute-admin-summary');
+    summary.append(element('span', title), element('span', metadata, 'task-meta'));
+    row.append(summary, card);
+    return row;
+  }
 
   const refresh = async (requestedView = view, requestedPage = page, message = '', focusTask) => {
     if (loading) return;
@@ -606,7 +633,13 @@ async function initAdmin() {
       view = requestedView;
       page = requestedPage;
       const records = result[view];
-      items.replaceChildren(...records.map(view === 'tasks' ? reviewCard : user => userCard(user, result.viewer_id)));
+      const rows = view === 'tasks'
+        ? records.map(task => adminRow(task.title,
+          (task.kind === 'wet' ? 'Wet Lab' : 'Dry Lab') + ' · ' + statusLabel(task.status) + ' · ' + dateLabel(task.updated_at),
+          reviewCard(task)))
+        : records.map(user => adminRow(user.name, user.email + ' · ' + (user.disabled ? 'Disabled' : 'Active'),
+          userCard(user, result.viewer_id)));
+      items.replaceChildren(...rows);
       if (!records.length) items.append(element('p', 'No records on this page.'));
       byId('admin-view-title').textContent = view === 'tasks' ? 'Submissions' : 'Users';
       byId('admin-page').textContent = 'Page ' + (page + 1);
@@ -615,7 +648,11 @@ async function initAdmin() {
       next.disabled = !result.has_more;
       byId('admin-panel').hidden = false;
       showMessage(message);
-      if (focusTask) byId(focusTask)?.scrollIntoView({ block: 'nearest' });
+      if (focusTask) {
+        const card = byId(focusTask);
+        card?.closest('.contribute-admin-row')?.setAttribute('open', '');
+        card?.scrollIntoView({ block: 'nearest' });
+      }
     } catch (error) {
       items.replaceChildren();
       byId('admin-panel').hidden = true;
@@ -686,6 +723,7 @@ async function initAdmin() {
   }
 
   viewButtons.forEach(control => control.addEventListener('click', () => refresh(control.dataset.adminView, 0)));
+  layoutButtons.forEach(control => control.addEventListener('click', () => setLayout(control.dataset.adminMode)));
   previous.addEventListener('click', () => refresh(view, page - 1));
   next.addEventListener('click', () => refresh(view, page + 1));
   await refresh();

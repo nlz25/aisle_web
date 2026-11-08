@@ -455,6 +455,28 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
   await DB.prepare('UPDATE package_gc SET delete_after=0').run();
   await worker.scheduled({}, env);
   assert.equal(objects.size, 0);
+
+  const otherTasks = async () => (await (await expect(request('/tasks', { cookie: other.cookie }), 200)).json()).tasks;
+  const submittedDry = (await otherTasks()).find(task => '/tasks/' + task.id === dryPath);
+  await expect(request(dryPath + '?revision=' + submittedDry.revision, { cookie: other.cookie, method: 'DELETE' }), 409);
+  const draftResponse = await expect(request('/tasks', { cookie: other.cookie, method: 'POST', data }), 201);
+  const { id: draftId } = await draftResponse.json();
+  const draftPath = '/tasks/' + draftId;
+  await expect(request(draftPath + '/package', { cookie: other.cookie, method: 'PUT', archive: zip }), 200);
+  await expect(request(draftPath + '/comments', {
+    cookie: other.cookie, method: 'POST', data: { message: 'Notes for this draft' },
+  }), 201);
+  const draft = (await otherTasks()).find(task => task.id === draftId);
+  const discardPath = draftPath + '?revision=' + draft.revision;
+  await expect(request(discardPath, { ...admin, method: 'DELETE' }), 404);
+  await expect(request(draftPath + '?revision=0', { cookie: other.cookie, method: 'DELETE' }), 409);
+  await expect(request(discardPath, { cookie: other.cookie, method: 'DELETE' }), 200);
+  assert.equal((await otherTasks()).some(task => task.id === draftId), false);
+  assert.equal((await DB.prepare('SELECT COUNT(*) AS count FROM task_comments WHERE task_id=?').bind(draftId).first()).count, 0);
+  await DB.prepare('UPDATE package_gc SET delete_after=0').run();
+  await worker.scheduled({}, env);
+  assert.equal(objects.size, 0);
+
   await expect(request('/auth/logout', { method: 'POST', cookie: other.cookie }), 200);
   await expect(request('/me', { cookie: other.cookie }), 401);
   const audit = await DB.prepare(

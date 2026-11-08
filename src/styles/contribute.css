@@ -66,6 +66,7 @@ body.contribute-page {
 .contribute-links { margin-top: 2rem; }
 .contribute-toolbar { margin-block: .8rem; }
 .contribute-toolbar p { margin: 0; }
+.contribute-toolbar > .contribute-form > .contribute-message:empty { display: none; }
 .contribute-form-panel { max-width: 43rem; margin-block: 1.5rem; }
 .contribute-form { display: grid; gap: .9rem; }
 .contribute details > form { margin-top: 1rem; }
@@ -110,6 +111,29 @@ body.contribute-page {
 .contribute-task-list .task-meta { font-size: .94rem; overflow-wrap: anywhere; }
 .contribute-task-list details { margin-block: .8rem; }
 .contribute-task-list .task-status { color: var(--contribute-accent); font-weight: 650; }
+.contribute-admin-toolbar { justify-content: space-between; }
+.contribute-admin-toolbar [role=group] { display: flex; gap: .55rem; flex-wrap: wrap; }
+.contribute-admin-items[data-layout=cards] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
+  align-items: start;
+}
+.contribute-task-list .contribute-admin-row { margin: 0; min-width: 0; }
+.contribute-admin-items[data-layout=cards] .contribute-admin-summary { display: none; }
+.contribute-admin-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .3rem 1rem;
+  padding: .7rem 1rem;
+  border: 1px solid var(--contribute-line);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.contribute-admin-summary > :first-child { flex: 1 1 13rem; }
+.contribute-admin-summary::-webkit-details-marker { display: none; }
+.contribute-admin-summary::after { content: '▸'; color: var(--contribute-accent); }
+.contribute-admin-row[open] > .contribute-admin-summary { margin-bottom: .4rem; }
+.contribute-admin-row[open] > .contribute-admin-summary::after { content: '▾'; }
 .contribute-package, .contribute-pr-guide {
   margin-block: 1rem;
   padding: .9rem 1rem;
