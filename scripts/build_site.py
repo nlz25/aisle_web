@@ -77,7 +77,8 @@ def build_worker_assets(origin, version):
         shutil.rmtree(WORKSPACE_OUTPUT)
     write_site_assets(WORKSPACE_OUTPUT, version, workspace_only=True)
     for path in (
-        "favicon.png", "apple-touch-icon.png", "assets/brand/aisle-logo-white.svg",
+        "favicon.png", "apple-touch-icon.png", "assets/brand/aisle-orbital.svg",
+        "assets/brand/aisle-orbital-static.svg",
         "assets/fonts/source-serif-4-latin-variable.woff2", "assets/fonts/dancing-script.woff2",
         "assets/fonts/sourceserif4-OFL.txt", "assets/fonts/OFL-DancingScript.txt",
     ):
