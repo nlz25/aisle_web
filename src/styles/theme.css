@@ -787,3 +787,20 @@ body {
 }
 
 .tasks-page .notice { border-left-color: #87504a; }
+
+/* Full project name beside the orbital mark. */
+.brand-full-name {
+  font-family: var(--typeface);
+  font-size: clamp(18px, 1.8vw, 24px);
+  font-weight: 500;
+  line-height: 1.2;
+  color: #e9edf1;
+  white-space: nowrap;
+}
+@media (min-width: 781px) and (max-width: 1100px) {
+  .header-inner .nav-links { gap: 18px; }
+  .brand-full-name { font-size: 18px; }
+}
+@media (max-width: 480px) {
+  .brand-full-name { font-size: 16px; white-space: normal; max-width: 170px; }
+}

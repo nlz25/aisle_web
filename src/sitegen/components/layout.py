@@ -22,7 +22,7 @@ def header(page, site_prefix="", version=""):
     )
     return f'''<a class="skip" href="#main">Skip to content</a>
     <header class="site-header"><div class="wrap header-inner">
-      <a class="brand" href="{site_prefix}index.html" aria-label="AISLE home"><img class="brand-logo brand-logo-orbital" src="assets/brand/aisle-orbital.svg?v={version}" alt="AISLE orbital logo" width="1254" height="960"></a>
+      <a class="brand" href="{site_prefix}index.html" aria-label="AISLE home"><img class="brand-logo brand-logo-orbital" src="assets/brand/aisle-orbital.svg?v={version}" alt="AISLE orbital logo" width="1254" height="960"><span class="brand-full-name">AI Scientists' Last Exam</span></a>
       <nav class="nav-links" id="main-navigation" aria-label="Main navigation">{nav}</nav>
       <div class="nav-side">
       <button class="menu-toggle" aria-controls="main-navigation" aria-expanded="false">Menu +</button></div>
