@@ -79,6 +79,8 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
     assert.equal(target.origin, project);
     const path = target.pathname;
     if (path.endsWith('/.well-known/jwks.json')) return Response.json({ keys: [jwk] });
+    // Do not forward the Supabase API keys or bearer tokens to a redirect target.
+    assert.equal(options.redirect, 'manual');
     if (path.startsWith('/storage/v1/object')) {
       assert.equal(options.headers.apikey, env.SUPABASE_STORAGE_SECRET);
       const bucket = '/aisle-contribute-private';
