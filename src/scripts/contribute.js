@@ -18,7 +18,7 @@ async function api(path, { method = 'GET', data, file } = {}) {
     method,
     credentials: 'same-origin',
     cache: 'no-store',
-    headers: file ? { 'Content-Type': 'application/zip' }
+    headers: file ? { 'Content-Type': 'application/zip', 'X-AISLE-Filename': encodeURIComponent(file.name) }
       : data === undefined ? {} : { 'Content-Type': 'application/json' },
     body: file ?? (data === undefined ? undefined : JSON.stringify(data)),
   });
@@ -149,6 +149,151 @@ function details(title, child) {
   return node;
 }
 
+function taskDetailsForm(task, save, reviewer = false) {
+  const title = input('title', 'text', task.title, 160);
+  const description = element('textarea');
+  description.name = 'description';
+  description.value = task.description;
+  description.maxLength = 5000;
+  description.rows = 4;
+  title.required = description.required = true;
+  const fields = [field('Task title', title), field('Experiment description', description)];
+  if (reviewer && task.kind === 'dry') {
+    const pr = input('pr_url', 'url', task.pr_url, 500);
+    pr.required = true;
+    fields.push(field('GitHub pull request URL', pr));
+  }
+  return formFor(fields, 'Save details', form => save(Object.fromEntries(form)));
+}
+
+function discussion(task, path, forFile = false) {
+  const endpoint = path + '/comments' + (forFile ? '?scope=package' : '?scope=task');
+  const content = element('div');
+  const thread = element('ol', undefined, 'contribute-comments');
+  const notice = element('p', '', 'contribute-message');
+  notice.setAttribute('role', 'status');
+  const older = button('Load older comments', 'button', 'secondary');
+  const reload = button('Refresh comments', 'button', 'secondary');
+  const toolbar = element('div', undefined, 'contribute-toolbar');
+  toolbar.append(reload, older);
+  older.hidden = true;
+  content.append(toolbar, notice, thread);
+  let cursor = null;
+  let loaded = false;
+  let loadVersion = 0;
+
+  function commentItem(comment) {
+    const item = element('li');
+    const role = comment.author_role === 'reviewer' ? 'Reviewer' : 'Contributor';
+    const timestamp = new Date(comment.created_at * 1000).toLocaleString();
+    item.append(element('p', comment.author_name + ' · ' + role + ' · ' + timestamp, 'task-meta'));
+    if (forFile) {
+      const version = comment.package_version === task.package_version ? 'Current ZIP' : 'Earlier ZIP';
+      item.append(element('p', version + ' · ' + comment.package_name, 'task-meta'));
+    }
+    item.append(element('p', comment.message, 'comment-text'));
+    return item;
+  }
+
+  async function load(olderPage = false) {
+    const version = ++loadVersion;
+    reload.disabled = older.disabled = true;
+    showMessage('Loading comments…', false, notice);
+    try {
+      const { comments, before } = await api(endpoint + (olderPage ? '&before=' + cursor : ''));
+      if (version !== loadVersion) return;
+      const items = comments.map(commentItem);
+      if (olderPage) thread.prepend(...items);
+      else thread.replaceChildren(...items);
+      cursor = before;
+      older.hidden = cursor === null;
+      loaded = true;
+      showMessage(thread.childElementCount ? '' : 'No comments yet.', false, notice);
+    } catch (error) {
+      if (version === loadVersion) showMessage(error.message, true, notice);
+    } finally {
+      if (version === loadVersion) reload.disabled = older.disabled = false;
+    }
+  }
+
+  reload.addEventListener('click', () => load());
+  older.addEventListener('click', () => load(true));
+  if (!forFile || task.has_package) {
+    const message = element('textarea');
+    message.name = 'message';
+    message.required = true;
+    message.maxLength = 2000;
+    message.rows = 3;
+    content.append(formFor([
+      field(forFile ? 'Comment on ' + task.package_name : 'Message to contributors and reviewers', message),
+    ], 'Post comment', async form => {
+      await api(endpoint, { method: 'POST', data: {
+        message: form.get('message'),
+        package_version: forFile ? task.package_version : undefined,
+      } });
+      message.value = '';
+      await load();
+    }));
+  }
+  const panel = details(forFile ? 'ZIP comments' : 'Task discussion', content);
+  panel.addEventListener('toggle', () => {
+    if (panel.open && !loaded && !reload.disabled) load();
+  });
+  return panel;
+}
+
+function packagePanel(task, path, refresh, reviewer = false) {
+  const panel = element('section', undefined, 'contribute-package');
+  panel.append(element('h4', 'Experiment ZIP'));
+  if (task.has_package) {
+    panel.append(
+      element('p', task.package_name + ' · ' + (task.package_size / 1048576).toFixed(2) + ' MiB', 'task-meta'),
+      link(reviewer ? 'Download private ZIP' : 'Download ZIP',
+        prefix + path + '/package?version=' + encodeURIComponent(task.package_version)),
+    );
+  } else {
+    panel.append(element('p', 'No ZIP attached.', 'task-meta'));
+  }
+  if (task.package_locked)
+    panel.append(element('p', 'Locked by a reviewer. The ZIP can still be downloaded and discussed.', 'task-status'));
+  else if (!task.package_editable)
+    panel.append(element('p', 'File changes are closed for this review status.', 'task-meta'));
+
+  if (reviewer && (task.has_package || task.package_locked)) {
+    const locked = !task.package_locked;
+    panel.append(formFor([], locked ? 'Lock ZIP changes' : 'Unlock ZIP changes', async () => {
+      await api(path + '/package-lock', { method: 'PATCH', data: { locked, revision: task.revision } });
+      await refresh(locked ? 'ZIP changes locked.' : 'ZIP lock removed.', task.id);
+    }));
+  }
+  if (!reviewer && task.package_editable) {
+    const endpoint = path + '/package?revision=' + task.revision;
+    const file = input('zip', 'file');
+    file.accept = '.zip,application/zip,application/x-zip-compressed';
+    file.required = true;
+    panel.append(details(task.has_package ? 'Replace experiment ZIP' : 'Upload experiment ZIP', formFor([
+      element('p', 'Upload a complete ZIP archive, up to 25 MiB.'),
+      field('Experiment ZIP', file),
+    ], 'Upload ZIP', async form => {
+      const archive = form.get('zip');
+      if (!archive.size || !/\.zip$/i.test(archive.name) || archive.size > maxZip)
+        throw new Error('Choose a non-empty ZIP archive of 25 MiB or less.');
+      await api(endpoint, { method: 'PUT', file: archive });
+      await refresh('ZIP saved.', task.id);
+    })));
+    if (task.has_package) {
+      panel.append(details('Remove experiment ZIP', formFor([
+        element('p', 'Remove ' + task.package_name + ' from this task. Attach a new ZIP before submitting again.'),
+      ], 'Remove ZIP', async () => {
+        await api(endpoint, { method: 'DELETE' });
+        await refresh('ZIP removed.', task.id);
+      })));
+    }
+  }
+  panel.append(discussion(task, path, true));
+  return panel;
+}
+
 function scheduleForm(task, save) {
   const current = task.lab ?? {};
   const name = input('name', 'text', current.name, 120);
@@ -185,38 +330,13 @@ function ownerCard(task, refresh) {
   const editable = ['draft', 'changes_requested'].includes(task.status);
   const actions = element('div', undefined, 'contribute-toolbar');
   if (editable) {
-    const title = input('title', 'text', task.title, 160);
-    const description = element('textarea');
-    description.name = 'description';
-    description.value = task.description;
-    description.maxLength = 5000;
-    description.rows = 4;
-    title.required = description.required = true;
-    card.append(details('Edit draft details', formFor([
-      field('Task title', title), field('Experiment description', description),
-    ], 'Save details', async form => {
-      await api(path, { method: 'PATCH', data: Object.fromEntries(form) });
+    card.append(details('Edit draft details', taskDetailsForm(task, async data => {
+      await api(path, { method: 'PATCH', data });
       await refresh('Draft updated.', task.id);
     })));
   }
   if (task.kind === 'wet') {
-    if (task.has_package) actions.append(link('Download saved ZIP (' + (task.package_size / 1048576).toFixed(2) + ' MiB)', prefix + path + '/package'));
-    if (editable) {
-      const file = input('zip', 'file');
-      file.accept = '.zip,application/zip,application/x-zip-compressed';
-      file.required = true;
-      card.append(details(task.has_package ? 'Replace experiment ZIP' : 'Upload experiment ZIP', formFor([
-        element('p', 'Upload a complete ZIP archive, up to 25 MiB. AISLE stores the archive for separate processing.'),
-        field('Experiment ZIP', file),
-      ], 'Upload ZIP', async form => {
-        const archive = form.get('zip');
-        if (!archive.size || !/\.zip$/i.test(archive.name) || archive.size > maxZip) {
-          throw new Error('Choose a non-empty ZIP archive of 25 MiB or less.');
-        }
-        await api(path + '/package', { method: 'PUT', file: archive });
-        await refresh('ZIP uploaded. Submit your task when it is ready.', task.id);
-      })));
-    }
+    card.append(packagePanel(task, path, refresh));
     card.append(details('Manage lab availability', scheduleForm(task, async data => {
       await api(path, { method: 'PATCH', data });
       await refresh('Lab availability saved.', task.id);
@@ -232,6 +352,7 @@ function ownerCard(task, refresh) {
       await refresh('Pull request saved.', task.id);
     })));
   }
+  card.append(discussion(task, path));
   if (editable) {
     const submit = button('Submit for review');
     submit.disabled = task.kind === 'wet' ? !task.has_package : !task.pr_url;
@@ -402,7 +523,7 @@ async function initAdmin() {
   let page = 0;
   let loading = false;
 
-  const refresh = async (requestedView = view, requestedPage = page) => {
+  const refresh = async (requestedView = view, requestedPage = page, message = '', focusTask) => {
     if (loading) return;
     loading = true;
     for (const control of [...viewButtons, previous, next]) control.disabled = true;
@@ -419,7 +540,8 @@ async function initAdmin() {
       previous.disabled = page === 0;
       next.disabled = !result.has_more;
       byId('admin-panel').hidden = false;
-      showMessage('');
+      showMessage(message);
+      if (focusTask) byId(focusTask)?.scrollIntoView({ block: 'nearest' });
     } catch (error) {
       items.replaceChildren();
       byId('admin-panel').hidden = true;
@@ -432,16 +554,28 @@ async function initAdmin() {
     }
   };
 
+  const refreshTask = (message, id) => refresh(view, page, message, id);
+
   function reviewCard(task) {
     const card = taskCard(task);
     const path = '/admin/tasks/' + encodeURIComponent(task.id);
     card.append(element('p', task.email + ' · ' + task.organization + ' · Updated ' + dateLabel(task.updated_at), 'task-meta'));
-    if (task.has_package) card.append(link('Download private ZIP', prefix + path + '/package'));
+    if (task.status !== 'draft') {
+      const saveDetails = async data => {
+        await api(path + '/details', { method: 'PATCH', data: { ...data, revision: task.revision } });
+        await refreshTask('Task details saved.', task.id);
+      };
+      card.append(details('Edit task details', taskDetailsForm(task, saveDetails, true)));
+      if (task.kind === 'wet')
+        card.append(details('Edit lab availability', scheduleForm(task, saveDetails)));
+    }
+    if (task.kind === 'wet') card.append(packagePanel(task, path, refreshTask, true));
+    card.append(discussion(task, path));
     if (!['draft', 'changes_requested'].includes(task.status)) {
       const status = select('status', [...new Set([task.status, ...reviewStates])], task.status);
       card.append(details('Review submission', formFor([field('Review status', status)], 'Save review', async form => {
         await api(path, { method: 'PATCH', data: { status: form.get('status'), revision: task.revision } });
-        await refresh();
+        await refreshTask('Review status saved.', task.id);
       })));
     }
     return card;

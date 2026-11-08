@@ -55,6 +55,7 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
   const tokens = new Map();
   const objects = new Map();
   let rejectNextProof = false;
+  let duringUpload;
 
   const issue = async (account, aal, issuer = project + '/auth/v1') => {
     const token = await new SignJWT({
@@ -96,6 +97,7 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
       if (options.method === 'POST') {
         assert.equal(options.headers['x-upsert'], 'false');
         objects.set(key, Buffer.from(options.body));
+        if (duringUpload) await duringUpload();
         return Response.json({ Key: key });
       }
       return new Response(objects.get(key), { status: objects.has(key) ? 200 : 404 });
@@ -149,12 +151,13 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
   });
 
   async function request(path, options = {}) {
-    const { method = 'GET', data, archive, cookie, origin = site } = options;
+    const { method = 'GET', data, archive, filename, cookie, origin = site } = options;
     const headers = new Headers({ 'CF-Connecting-IP': '192.0.2.1' });
     if (method !== 'GET') headers.set('Origin', origin);
     if (cookie) headers.set('Cookie', cookie);
     if (data !== undefined) headers.set('Content-Type', 'application/json');
     if (archive) headers.set('Content-Type', 'application/zip');
+    if (filename) headers.set('X-AISLE-Filename', encodeURIComponent(filename));
     return worker.fetch(
       new Request(site + '/api/contribute' + path, {
         method,
@@ -261,8 +264,9 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
   const download = await expect(request(path + '/package', { cookie: owner.cookie }), 200);
   assert.match(download.headers.get('Content-Disposition'), /^attachment;/);
   assert.deepEqual(Buffer.from(await download.arrayBuffer()), zip);
+  const taskRecord = async () => (await (await request('/tasks', { cookie: owner.cookie })).json()).tasks[0];
+  assert.equal((await taskRecord()).package_name, id + '.zip');
   await expect(request(path + '/submit', { method: 'POST', cookie: owner.cookie }), 200);
-  await expect(request(path + '/package', { method: 'PUT', cookie: owner.cookie, archive: zip }), 409);
   await expect(
     request(path, { method: 'PATCH', cookie: owner.cookie, data: { title: 'Changed title' } }),
     409,
@@ -270,6 +274,16 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
   const listed = await (await request('/tasks', { cookie: owner.cookie })).json();
   assert.equal(listed.tasks[0].package_key, undefined);
   assert.equal(listed.tasks[0].status, 'submitted');
+  const notes = path + '/comments';
+  const fileNotes = notes + '?scope=package';
+  const oldVersion = listed.tasks[0].package_version;
+  await expect(request(notes, { cookie: other.cookie }), 404);
+  await expect(request(notes, { method: 'POST', cookie: other.cookie, data: { message: 'Not my task' } }), 404);
+  await expect(request('/admin' + notes, { cookie: reviewer.cookie }), 403);
+  await expect(request(notes, { method: 'POST', cookie: owner.cookie, data: { message: 'Experiment note' } }), 201);
+  await expect(request(fileNotes, {
+    method: 'POST', cookie: owner.cookie, data: { message: 'First archive', package_version: oldVersion },
+  }), 201);
 
   await expect(request('/admin/users'), 401);
   await expect(request('/admin/users', { cookie: owner.cookie }), 403);
@@ -292,7 +306,73 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
   await expect(request('/admin/users', { cookie: reviewer.cookie }), 401);
   const users = await (await expect(request('/admin/users', admin), 200)).json();
   assert.equal(users.users.length, 3);
+  const adminTask = '/admin' + path;
+  await expect(request('/admin' + notes, {
+    ...admin, method: 'POST', data: { message: 'Thanks for the submission' },
+  }), 201);
+  const taskDiscussion = await (await expect(request(notes, { cookie: owner.cookie }), 200)).json();
+  assert.deepEqual(taskDiscussion.comments.map(c => [c.author_role, c.message]), [
+    ['contributor', 'Experiment note'], ['reviewer', 'Thanks for the submission'],
+  ]);
+  await expect(request(adminTask + '/details', {
+    cookie: other.cookie, method: 'PATCH', data: { title: 'Not allowed', revision: listed.tasks[0].revision },
+  }), 403);
+  await expect(request(adminTask + '/details', {
+    ...admin, method: 'PATCH', data: { title: 'Reviewed experiment', revision: listed.tasks[0].revision },
+  }), 200);
+  let current = await taskRecord();
+  assert.equal(current.title, 'Reviewed experiment');
+  assert.equal(current.status, 'submitted');
+  await expect(request(adminTask + '/details', {
+    ...admin, method: 'PATCH', data: { title: 'Stale edit', revision: listed.tasks[0].revision },
+  }), 409);
+  const lock = (locked, revision) => request(adminTask + '/package-lock', {
+    ...admin, method: 'PATCH', data: { locked, revision },
+  });
+  const changeZip = (method, revision, options = {}) => request(path + '/package?revision=' + revision, {
+    method, cookie: owner.cookie, ...options,
+  });
+  await expect(changeZip('PUT', current.revision, { archive: zip, filename: '../other.zip' }), 400);
+  const beforeLock = current.revision;
+  duringUpload = async () => { await expect(lock(true, beforeLock), 200); };
+  await expect(changeZip('PUT', beforeLock, { archive: zip, filename: 'interrupted.zip' }), 409);
+  duringUpload = undefined;
+  current = await taskRecord();
+  assert.equal(current.package_locked, true);
+  assert.equal(current.package_editable, false);
+  assert.equal(current.package_version, oldVersion);
+  await expect(changeZip('PUT', current.revision, { archive: zip }), 409);
+  await expect(changeZip('DELETE', current.revision), 409);
+  await expect(request('/admin' + fileNotes, {
+    ...admin, method: 'POST', data: { message: 'ZIP locked for review', package_version: oldVersion },
+  }), 201);
+  await expect(lock(false, current.revision), 200);
+  current = await taskRecord();
+  await expect(changeZip('PUT', current.revision, { archive: zip, filename: '实验 v2.zip' }), 200);
+  current = await taskRecord();
+  assert.equal(current.package_name, '实验 v2.zip');
+  assert.notEqual(current.package_version, oldVersion);
+  assert.equal(current.status, 'submitted');
+  await expect(request(path + '/package?version=' + oldVersion, { cookie: owner.cookie }), 409);
+  await expect(request(fileNotes, {
+    method: 'POST', cookie: owner.cookie, data: { message: 'Stale ZIP', package_version: oldVersion },
+  }), 409);
+  const fileDiscussion = await (await expect(request(fileNotes, { cookie: owner.cookie }), 200)).json();
+  assert.deepEqual(fileDiscussion.comments.map(c => [c.package_version, c.message]), [
+    [oldVersion, 'First archive'], [oldVersion, 'ZIP locked for review'],
+  ]);
+  await expect(changeZip('DELETE', current.revision), 200);
+  current = await taskRecord();
+  assert.equal(current.has_package, false);
+  assert.equal(current.status, 'changes_requested');
+  await expect(request(path + '/package', { cookie: owner.cookie }), 404);
+  await expect(request(path + '/submit', { method: 'POST', cookie: owner.cookie }), 400);
+  await expect(changeZip('PUT', current.revision, { archive: zip, filename: '实验 v3.zip' }), 200);
+  await expect(request(path + '/submit', { method: 'POST', cookie: owner.cookie }), 200);
+  current = await taskRecord();
   const adminPackage = await expect(request('/admin' + path + '/package', admin), 200);
+  const disposition = adminPackage.headers.get('Content-Disposition');
+  assert.equal(decodeURIComponent(disposition.split("filename*=UTF-8''")[1]), '实验 v3.zip');
   assert.deepEqual(Buffer.from(await adminPackage.arrayBuffer()), zip);
   await expect(
     request('/admin' + path, {
@@ -306,10 +386,15 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
     request('/admin' + path, {
       ...admin,
       method: 'PATCH',
-      data: { status: 'accepted', revision: listed.tasks[0].revision },
+      data: { status: 'accepted', revision: current.revision },
     }),
     200,
   );
+  current = await taskRecord();
+  await expect(changeZip('DELETE', current.revision), 409);
+  await DB.prepare('UPDATE package_gc SET delete_after=0').run();
+  await worker.scheduled({}, env);
+  assert.equal(objects.size, 1);
   await expect(
     request(path, {
       cookie: owner.cookie,

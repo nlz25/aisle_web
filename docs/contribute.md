@@ -10,14 +10,19 @@ New contributors use their verified contact email from GitHub and provide
 their name and organization. Dry Lab contributors attach a GitHub pull request
 URL. Wet Lab contributors upload a single non-empty ZIP, up to 25 MiB. The
 Worker checks the ZIP envelope and stores it under a quarantine prefix. Task
-ownership governs uploads and downloads. The scheduled job clears expired
-sessions and OAuth attempts and removes abandoned or replaced packages.
+owners can download, replace, or remove their current ZIP until a reviewer
+locks it or the review is finalized. Removing a ZIP from a submitted task
+requires attaching a new ZIP and resubmitting. The scheduled job clears expired
+sessions and OAuth attempts and removes abandoned, replaced, or removed packages.
 
 The administrator workspace is at /contribute-admin.html. Reviewers sign in
 with GitHub, then verify a six-digit code from an authenticator app. The Worker
 requires an approved Supabase user ID and recent MFA verification for every
-admin API call. Administrators can review submissions, download ZIPs, and
-disable or enable contributor accounts. Account and review actions are audited.
+admin API call. Administrators can edit submitted task details, review
+submissions, download or lock ZIPs, and disable or enable contributor accounts.
+Task discussions are shared with the contributor. ZIP comments stay associated
+with the version they describe, including after a replacement or removal.
+Account and review actions are audited.
 
 ## Local verification
 
