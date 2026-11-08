@@ -440,6 +440,21 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
     200,
   );
   await expect(request(dryPath + '/submit', { cookie: other.cookie, method: 'POST' }), 200);
+  const taskForDeletion = (await (await expect(request('/admin/tasks', admin), 200)).json()).tasks
+    .find(task => task.id === id);
+  const deletePath = adminTask + '?revision=' + taskForDeletion.revision;
+  await expect(request(deletePath, { method: 'DELETE', cookie: other.cookie }), 403);
+  await expect(request(adminTask + '?revision=' + (taskForDeletion.revision - 1), { ...admin, method: 'DELETE' }), 409);
+  await expect(request(deletePath, { ...admin, method: 'DELETE', origin: 'https://evil.example' }), 403);
+  await expect(request(deletePath, { ...admin, method: 'DELETE' }), 200);
+  await expect(request('/admin' + notes, admin), 404);
+  assert.equal((await DB.prepare('SELECT COUNT(*) AS count FROM task_comments WHERE task_id=?').bind(id).first()).count, 0);
+  const deletionAudit = await DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE target_id=? AND action='task.delete'")
+    .bind(id).first();
+  assert.equal(deletionAudit.count, 1);
+  await DB.prepare('UPDATE package_gc SET delete_after=0').run();
+  await worker.scheduled({}, env);
+  assert.equal(objects.size, 0);
   await expect(request('/auth/logout', { method: 'POST', cookie: other.cookie }), 200);
   await expect(request('/me', { cookie: other.cookie }), 401);
   const audit = await DB.prepare(
