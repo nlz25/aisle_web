@@ -277,14 +277,14 @@ if (statistics && window.requestAnimationFrame && window.matchMedia) {
 
 // A single visible ranking; category boards always include every eligible model.
 document.querySelectorAll('[data-experiment-explorer]').forEach(explorer => {
-  let mode = 'all', category = 'overall';
+  let mode = 'wet', category = 'overall';
   const available = {all: ['optimization', 'safety', 'robustness', 'multimodal'], wet: ['optimization', 'robustness', 'multimodal'], dry: ['optimization', 'safety']};
   const modes = [...explorer.querySelectorAll('[data-experiment-mode]')];
   const categories = [...explorer.querySelectorAll('[data-experiment-category]')];
   const coverage = explorer.querySelector('[data-experiment-coverage]');
   const render = () => {
     if (category !== 'overall' && !available[mode].includes(category)) category = 'overall';
-    const hasCoverage = category === 'overall' && mode !== 'dry';
+    const hasCoverage = false;
     coverage.closest('label').hidden = !hasCoverage;
     modes.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.experimentMode === mode)));
     categories.forEach(button => {

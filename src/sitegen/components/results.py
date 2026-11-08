@@ -4,6 +4,8 @@ from ..context import MODELS, esc
 
 LOGOS = {
     "gpt": "GPT",
+    "astra": "GPT",
+    "opus": "Claude",
     "glm": "GLM",
     "qwen": "Qwen",
     "claude": "Claude",

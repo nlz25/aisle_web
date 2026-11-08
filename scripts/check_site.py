@@ -98,28 +98,21 @@ for path, page in pages.items():
     for model_id, cohort in page.profiles:
         if model_id not in models or models[model_id].get(cohort) is None:
             errors.append(f"{path.name}: invalid model profile {model_id}/{cohort}")
-    if path.name in {"index.html", "leaderboard.html"} and path.read_text().count("data-ranking-panel ") != 14:
-        errors.append(f"{path}: expected 14 experiment/category/coverage views")
+    if path.name in {"index.html", "leaderboard.html"} and path.read_text().count("data-ranking-panel ") != 7:
+        errors.append(f"{path}: expected 7 wet/dry category views")
 
-if len(models) != 7:
-    errors.append("Shared cohort must have seven models")
-if sum(m["full"] is not None for m in models.values()) != 5:
-    errors.append("Full cohort must have five models")
+if len(models) != 9:
+    errors.append("Current cohort must have nine models")
+if sum(m["wet"] is not None for m in models.values()) != 5:
+    errors.append("Complete wet cohort must have five models")
+if sum(m["dry"] is not None for m in models.values()) != 9:
+    errors.append("Complete dry cohort must have nine models")
 for m in models.values():
-    for key in ["optimization", "safety", "robustness", "multimodal", "shared", "full"]:
+    for key in ["optimization", "safety", "robustness", "multimodal", "wet", "dry"]:
         if m[key] is not None and not 0 <= m[key] <= 100:
             errors.append(f"Invalid score: {m['id']}/{key}")
-    if (m["multimodal"] is None) != (m["full"] is None):
-        errors.append(f"Coverage mismatch: {m['id']}")
-    for cohort, keys in [
-        ("shared", ["optimization", "safety", "robustness"]),
-        ("full", ["optimization", "safety", "robustness", "multimodal"]),
-    ]:
-        if m[cohort] is None:
-            continue
-        expected = sum(m[k] for k in keys) / len(keys)
-        if abs(m[cohort] - expected) > 0.011:
-            errors.append(f"Aggregate/rounding mismatch: {m['id']}/{cohort}")
+    if m["wet"] is not None and abs(m["wet"]-(m["optimization"]+m["robustness"]+m["multimodal"])/3)>1e-8:
+        errors.append(f"Wet aggregate mismatch: {m['id']}")
 
 network = json.loads((REPO / "data/network.json").read_text())
 institutions = {item["id"]: item for item in network["institutions"]}

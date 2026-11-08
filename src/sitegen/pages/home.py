@@ -36,7 +36,7 @@ def home():
             [
                 ("Tasks", "Colour matching with six forbidden-band conditions"),
                 ("Decisions", "Balance target improvement with constraint adherence"),
-                ("Coverage", "126 runs across seven models"),
+                ("Coverage", "162 runs across nine models"),
                 ("Evidence", "Safe completion and consistency across repeats"),
             ],
         ),
