@@ -374,14 +374,90 @@ const audit = (env, u, action, id) =>
   env.DB.prepare('INSERT INTO audit_log VALUES (?,?,?,?,?)')
     .bind(crypto.randomUUID(), u.id, action, id, now())
     .run();
+const packageVersion = (t) => t.package_key?.split('/').at(-1).replace(/\.zip$/, '') ?? null;
+const packageName = (t) => t.package_name ?? t.id + '.zip';
+const packageStates = ['draft', 'changes_requested', 'submitted', 'in_review'];
 const safeTask = (t) => ({
   ...t,
   package_key: undefined,
   has_package: !!t.package_key,
+  package_name: t.package_key ? packageName(t) : null,
+  package_version: packageVersion(t),
+  package_locked: Boolean(t.package_locked),
+  package_editable: t.kind === 'wet' && !t.package_locked && packageStates.includes(t.status),
   lab: JSON.parse(t.lab_json),
   lab_json: undefined,
 });
 const editableStates = ['draft', 'changes_requested'];
+const staleTask = () => fail(409, 'Task changed. Reload and try again.');
+
+async function updateDetails(env, u, task, b, reviewer = false) {
+  if (reviewer && task.status === 'draft') fail(409, 'This task has not been submitted.');
+  if (reviewer && b.revision !== task.revision) staleTask();
+  if (
+    !reviewer && (b.title !== undefined || b.description !== undefined || b.pr_url !== undefined) &&
+    !editableStates.includes(task.status)
+  ) fail(409, 'Submission details are locked during and after review.');
+  if (task.kind !== 'wet' && (b.lab !== undefined || b.notice !== undefined))
+    fail(400, 'Lab availability belongs to Wet Lab tasks.');
+  if (task.kind !== 'dry' && b.pr_url !== undefined) fail(400, 'Pull requests belong to Dry Lab tasks.');
+  const title = b.title === undefined ? task.title : text(b.title, 160);
+  const description = b.description === undefined ? task.description : text(b.description, 5000);
+  const pr = b.pr_url === undefined ? task.pr_url : text(b.pr_url, 500, reviewer);
+  if (pr && !validPR(pr)) fail(400, 'Enter a GitHub pull request URL.');
+  const l = b.lab === undefined ? task.lab_json : JSON.stringify(lab(b.lab));
+  const notice = b.notice === undefined ? task.notice : text(b.notice, 2000, false);
+  const update = env.DB.prepare(
+    'UPDATE tasks SET title=?,description=?,pr_url=?,lab_json=?,notice=?,updated_at=?,revision=revision+1 WHERE id=? AND user_id=? AND revision=?',
+  ).bind(title, description, pr, l, notice, now(), task.id, task.user_id, task.revision);
+  if (reviewer) return auditedTaskUpdate(env, u, task, update, 'task.edit');
+  if (!(await update.run()).meta.changes) staleTask();
+  return json({ ok: true });
+}
+
+async function auditedTaskUpdate(env, u, task, update, action) {
+  const [result] = await env.DB.batch([
+    update,
+    env.DB.prepare('INSERT INTO audit_log SELECT ?,?,?,?,? WHERE changes()=1')
+      .bind(crypto.randomUUID(), u.id, action, task.id, now()),
+  ]);
+  if (!result.meta.changes) staleTask();
+  return json({ ok: true });
+}
+
+async function taskComments(req, env, url, u, task, reviewer = false) {
+  const scope = url.searchParams.get('scope') ?? 'task';
+  if (scope !== 'task' && (scope !== 'package' || task.kind !== 'wet'))
+    fail(400, 'Invalid discussion.');
+  const file = scope === 'package';
+  if (req.method === 'GET') {
+    const cursor = url.searchParams.get('before');
+    const before = cursor === null ? null : Number(cursor);
+    if (before !== null && (!Number.isSafeInteger(before) || before <= 0))
+      fail(400, 'Invalid comment cursor.');
+    const { results } = await env.DB.prepare(
+      'SELECT c.id,c.author_role,u.name AS author_name,c.message,c.package_version,c.package_name,c.created_at ' +
+      'FROM task_comments c JOIN users u ON u.id=c.author_id ' +
+      'WHERE c.task_id=? AND (c.package_version IS NOT NULL)=? AND (? IS NULL OR c.id<?) ORDER BY c.id DESC LIMIT 31',
+    ).bind(task.id, +file, before, before).all();
+    const comments = results.slice(0, 30).reverse();
+    return json({ comments, before: results.length > 30 ? comments[0].id : null });
+  }
+  if (req.method !== 'POST') fail(405, 'Method not allowed.');
+  const b = await body(req);
+  if (file && (!task.package_key || b.package_version !== packageVersion(task)))
+    fail(409, 'The ZIP changed. Reload the task before commenting.');
+  const result = await env.DB.prepare(
+    'INSERT INTO task_comments(task_id,author_id,author_role,message,package_version,package_name,created_at) ' +
+    'SELECT id,?,?,?,?,?,? FROM tasks WHERE id=? AND (?=0 OR package_key=?)',
+  ).bind(
+    u.id, reviewer ? 'reviewer' : 'contributor', text(b.message, 2000),
+    file ? packageVersion(task) : null, file ? packageName(task) : null, now(),
+    task.id, +file, task.package_key,
+  ).run();
+  if (!result.meta.changes) fail(409, 'The ZIP changed. Reload the task before commenting.');
+  return json({ ok: true }, 201);
+}
 
 async function route(req, env) {
   const url = new URL(req.url),
@@ -456,13 +532,26 @@ async function route(req, env) {
       if (!updated.meta.changes) fail(404, 'Account not found.');
       return json({ ok: true });
     }
-    m = p.match(/^\/admin\/tasks\/([\w-]+)(\/package)?$/);
+    m = p.match(/^\/admin\/tasks\/([\w-]+)(?:\/(package|package-lock|details|comments))?$/);
     if (m) {
       const t = await env.DB.prepare('SELECT * FROM tasks WHERE id=?').bind(m[1]).first();
       if (!t) fail(404, 'Task not found.');
-      if (method === 'GET' && m[2]) {
+      if (m[2] === 'comments') return taskComments(req, env, url, u, t, true);
+      if (method === 'GET' && m[2] === 'package') {
         await audit(env, u, 'package.download', t.id);
-        return download(env, t);
+        return download(env, t, url.searchParams.get('version'));
+      }
+      if (method === 'PATCH' && m[2] === 'details')
+        return updateDetails(env, u, t, await body(req), true);
+      if (method === 'PATCH' && m[2] === 'package-lock') {
+        const { locked, revision } = await body(req);
+        if (t.kind !== 'wet' || typeof locked !== 'boolean') fail(400, 'Invalid ZIP lock change.');
+        if (revision !== t.revision) staleTask();
+        if (locked && !t.package_key) fail(409, 'There is no ZIP to lock.');
+        const update = env.DB.prepare(
+          'UPDATE tasks SET package_locked=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=?',
+        ).bind(+locked, now(), t.id, revision);
+        return auditedTaskUpdate(env, u, t, update, locked ? 'package.lock' : 'package.unlock');
       }
       if (method === 'PATCH' && !m[2]) {
         const b = await body(req);
@@ -471,21 +560,11 @@ async function route(req, env) {
           !['submitted', 'in_review', 'accepted', 'rejected'].includes(t.status)
         )
           fail(400, 'Invalid review transition.');
-        if (b.revision !== t.revision) fail(409, 'Task changed. Reload and try again.');
-        const [updated] = await env.DB.batch([
-          env.DB.prepare(
-            'UPDATE tasks SET status=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=?',
-          ).bind(b.status, now(), t.id, t.revision),
-          env.DB.prepare('INSERT INTO audit_log SELECT ?,?,?,?,? WHERE changes()=1').bind(
-            crypto.randomUUID(),
-            u.id,
-            'task.' + b.status,
-            t.id,
-            now(),
-          ),
-        ]);
-        if (!updated.meta.changes) fail(409, 'Task changed. Reload and try again.');
-        return json({ ok: true });
+        if (b.revision !== t.revision) staleTask();
+        const update = env.DB.prepare(
+          'UPDATE tasks SET status=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=?',
+        ).bind(b.status, now(), t.id, t.revision);
+        return auditedTaskUpdate(env, u, t, update, 'task.' + b.status);
       }
     }
     fail(404, 'Not found.');
@@ -510,17 +589,35 @@ async function route(req, env) {
     if (!inserted.meta.changes) fail(409, 'Task limit reached. Contact AISLE.');
     return json({ id }, 201);
   }
-  const match = p.match(/^\/tasks\/([\w-]+)(\/(package|submit))?$/);
+  const match = p.match(/^\/tasks\/([\w-]+)(?:\/(package|submit|comments))?$/);
   if (!match) fail(404, 'Not found.');
   const task = await env.DB.prepare('SELECT * FROM tasks WHERE id=? AND user_id=?')
     .bind(match[1], u.id)
     .first();
   if (!task) fail(404, 'Task not found.');
-  if (method === 'GET' && match[3] === 'package') return download(env, task);
-  if (method === 'PUT' && match[3] === 'package') {
-    if (task.kind !== 'wet' || !editableStates.includes(task.status))
-      fail(409, 'This task is not accepting a package.');
+  if (match[2] === 'comments') return taskComments(req, env, url, u, task);
+  if (method === 'GET' && match[2] === 'package') return download(env, task, url.searchParams.get('version'));
+  if (match[2] === 'package' && ['PUT', 'DELETE'].includes(method)) {
+    if (task.kind !== 'wet' || task.package_locked || !packageStates.includes(task.status))
+      fail(409, 'The experiment ZIP is locked for changes.');
+    const revision = url.searchParams.get('revision');
+    if ((revision !== null || method === 'DELETE') && revision !== String(task.revision)) staleTask();
+    if (method === 'DELETE') {
+      if (!task.package_key) fail(404, 'No ZIP to remove.');
+      const [result] = await env.DB.batch([
+        env.DB.prepare(
+          'UPDATE tasks SET package_key=NULL,package_size=NULL,package_name=NULL,revision=revision+1,updated_at=?,' +
+          "status=CASE WHEN status IN ('submitted','in_review') THEN 'changes_requested' ELSE status END " +
+          'WHERE id=? AND user_id=? AND revision=? AND package_locked=0',
+        ).bind(now(), task.id, u.id, task.revision),
+        env.DB.prepare('INSERT OR IGNORE INTO package_gc SELECT ?,? WHERE changes()=1')
+          .bind(task.package_key, now() + 3600),
+      ]);
+      if (!result.meta.changes) staleTask();
+      return json({ ok: true });
+    }
     if (req.headers.get('Content-Type') !== 'application/zip') fail(415, 'Upload a ZIP file.');
+    const filename = uploadedPackageName(req);
     const data = await bytes(req, MAX_ZIP);
     if (!hasZipDirectory(data)) fail(400, 'Expected a non-empty ZIP archive.');
     const key = `quarantine/${u.id}/${task.id}/${crypto.randomUUID()}.zip`;
@@ -531,8 +628,10 @@ async function route(req, env) {
     await putPackage(env, key, data);
     const statements = [
       env.DB.prepare(
-        "UPDATE tasks SET package_key=?,package_size=?,revision=revision+1,updated_at=? WHERE id=? AND user_id=? AND revision=? AND status IN ('draft','changes_requested')",
-      ).bind(key, data.length, now(), task.id, u.id, task.revision),
+        'UPDATE tasks SET package_key=?,package_size=?,package_name=?,revision=revision+1,updated_at=?,' +
+        "status=CASE WHEN status='in_review' THEN 'submitted' ELSE status END " +
+        'WHERE id=? AND user_id=? AND revision=? AND package_locked=0',
+      ).bind(key, data.length, filename, now(), task.id, u.id, task.revision),
       env.DB.prepare(
         'DELETE FROM package_gc WHERE key=? AND EXISTS(SELECT 1 FROM tasks WHERE package_key=?)',
       ).bind(key, key),
@@ -544,43 +643,11 @@ async function route(req, env) {
         ).bind(task.package_key, now() + 3600, key),
       );
     const [result] = await env.DB.batch(statements);
-    if (!result.meta.changes) fail(409, 'Task changed. Reload and try again.');
+    if (!result.meta.changes) staleTask();
     return json({ ok: true });
   }
-  if (method === 'PATCH' && !match[3]) {
-    const b = await body(req);
-    if (
-      (b.title !== undefined || b.description !== undefined || b.pr_url !== undefined) &&
-      !editableStates.includes(task.status)
-    )
-      fail(409, 'Submission details are locked during and after review.');
-    if (task.kind !== 'wet' && (b.lab !== undefined || b.notice !== undefined))
-      fail(400, 'Lab availability belongs to Wet Lab tasks.');
-    if (task.kind !== 'dry' && b.pr_url !== undefined) fail(400, 'Pull requests belong to Dry Lab tasks.');
-    const title = b.title === undefined ? task.title : text(b.title, 160),
-      description = b.description === undefined ? task.description : text(b.description, 5000);
-    const pr = b.pr_url === undefined ? task.pr_url : text(b.pr_url, 500, false);
-    if (pr && !validPR(pr)) fail(400, 'Enter a GitHub pull request URL.');
-    const l = b.lab === undefined ? task.lab_json : JSON.stringify(lab(b.lab));
-    const result = await env.DB.prepare(
-      'UPDATE tasks SET title=?,description=?,pr_url=?,lab_json=?,notice=?,updated_at=?,revision=revision+1 WHERE id=? AND user_id=? AND revision=?',
-    )
-      .bind(
-        title,
-        description,
-        pr,
-        l,
-        b.notice === undefined ? task.notice : text(b.notice, 2000, false),
-        now(),
-        task.id,
-        u.id,
-        task.revision,
-      )
-      .run();
-    if (!result.meta.changes) fail(409, 'Task changed. Reload and try again.');
-    return json({ ok: true });
-  }
-  if (method === 'POST' && match[3] === 'submit') {
+  if (method === 'PATCH' && !match[2]) return updateDetails(env, u, task, await body(req));
+  if (method === 'POST' && match[2] === 'submit') {
     if (!editableStates.includes(task.status)) fail(409, 'Task is already submitted.');
     if ((task.kind === 'wet' && !task.package_key) || (task.kind === 'dry' && !validPR(task.pr_url)))
       fail(400, 'Attach your ZIP package or GitHub PR before submitting.');
@@ -593,6 +660,20 @@ async function route(req, env) {
     return json({ ok: true });
   }
   fail(405, 'Method not allowed.');
+}
+
+function uploadedPackageName(req) {
+  const encoded = req.headers.get('X-AISLE-Filename');
+  if (encoded === null) return null;
+  let filename;
+  try {
+    filename = decodeURIComponent(encoded);
+  } catch {
+    fail(400, 'Invalid ZIP filename.');
+  }
+  if (!/^[^/\\\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]{1,251}\.zip$/i.test(filename))
+    fail(400, 'Invalid ZIP filename.');
+  return filename;
 }
 
 // Check the ZIP envelope without opening or extracting untrusted entries.
@@ -613,14 +694,16 @@ function hasZipDirectory(data) {
   }
   return false;
 }
-async function download(env, t) {
+async function download(env, t, version) {
   if (!t.package_key) fail(404, 'No package.');
+  if (version !== null && version !== packageVersion(t)) staleTask();
   const object = await getPackage(env, t.package_key);
   if (!object) fail(404, 'Package unavailable.');
   return new Response(object.body, {
     headers: {
       'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${t.id}.zip"`,
+      'Content-Disposition': `attachment; filename="${t.id}.zip"; filename*=UTF-8''` +
+        encodeURIComponent(packageName(t)).replace(/['()*]/g, (char) => '%' + char.charCodeAt(0).toString(16)),
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "sandbox; default-src 'none'",

@@ -110,6 +110,18 @@ body.contribute-page {
 .contribute-task-list .task-meta { font-size: .94rem; overflow-wrap: anywhere; }
 .contribute-task-list details { margin-block: .8rem; }
 .contribute-task-list .task-status { color: var(--contribute-accent); font-weight: 650; }
+.contribute-package {
+  margin-block: 1rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--contribute-line);
+  border-radius: 6px;
+}
+.contribute-package h4 { margin: 0; }
+.contribute-package > form { margin-block: .8rem; }
+.contribute-comments { list-style: none; padding: 0; margin-block: .8rem; }
+.contribute-comments li { padding: .75rem 0; border-top: 1px solid var(--contribute-line); }
+.contribute-comments li p { margin: .25rem 0; }
+.contribute-comments .comment-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .contribute [hidden] { display: none !important; }
 
 @media (max-width: 680px) {
