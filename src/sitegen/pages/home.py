@@ -75,7 +75,7 @@ def home():
         for i, (k, name, *_) in enumerate(categories)
     )
     panels = "".join(
-        f'<div class="task-panel task-overview" id="panel-{k}" role="tabpanel" aria-labelledby="tab-{k}" {"hidden" if i else ""}><div class="task-brief"><span class="badge">{badge}</span><h3>{heading}</h3><p class="task-summary">{summary}</p>{link("Task details", "tasks.html#" + k)}</div>{specs(rows)}</div>'
+        f'<div class="task-panel task-overview" id="panel-{k}" role="tabpanel" aria-labelledby="tab-{k}" {"hidden" if i else ""}><div class="task-brief"><span class="badge">{badge}</span><h3>{heading}</h3><p class="task-summary">{summary}</p>{link("Task details", "tasks.html")}</div>{specs(rows)}</div>'
         for i, (k, name, heading, summary, badge, rows) in enumerate(categories)
     )
     return f"""<main id="main">
@@ -90,7 +90,7 @@ def home():
         <div class="stat"><strong><span data-count="12" data-count-digits="2" aria-hidden="true">12</span><span class="sr-only">12</span></strong><span class="stat-label">Laboratories</span></div>
       </div>
       {team()}
-      <section class="section home-leaderboard" id="results"><div class="section-head"><h2>Leaderboard</h2>{link("Full leaderboard", "leaderboard.html")}</div>{chart_tabs()}<p class="leaderboard-update-note">More models and agent harnesses will be added in future updates.</p></section>
+      <section class="section home-leaderboard" id="results"><div class="section-head"><h2>Leaderboard</h2>{link("Full leaderboard", "leaderboard.html")}</div>{chart_tabs()}<p class="leaderboard-update-note">More models will be evaluated and more experimental tasks will be added in future updates.</p></section>
       <section class="section" id="experiments"><div class="section-head"><div><h2>Tasks</h2></div></div><div data-tabs><div class="tabs" role="tablist" aria-label="Task categories">{tabs}</div>{panels}</div></section>
       {institutions()}
       {contact()}

@@ -159,7 +159,7 @@ if (resultData) {
       board.querySelector('[data-score-heading]').textContent = overall ? label : ('Score');
       board.querySelector('[data-bar-heading]').innerHTML = overall ?
         ('Category contributions') :
-        `<a href="tasks.html#${key}">${label} · ${('Task details')} ↗</a>`;
+        `<a href="tasks.html">${label} · ${('Task details')} ↗</a>`;
       scores.forEach(({
         row,
         model
@@ -204,9 +204,9 @@ if (resultData) {
     const metrics = categories.map(([key, label]) => {
       const measured = model[key] != null;
       const included = key !== 'multimodal' || cohort === 'full';
-      return `<div class="model-metric${included ? '' : ' excluded'}"><a href="tasks.html#${key}">${label} ↗</a><strong>${measured ? model[key].toFixed(2) : 'N/A'}</strong><span>${!measured ? ('Not evaluated') : !included ? ('Not in this index') : ('Included')}</span></div>`;
+      return `<div class="model-metric${included ? '' : ' excluded'}"><a href="tasks.html">${label} ↗</a><strong>${measured ? model[key].toFixed(2) : 'N/A'}</strong><span>${!measured ? ('Not evaluated') : !included ? ('Not in this index') : ('Included')}</span></div>`;
     }).join('');
-    panel.innerHTML = `<div class="model-details-heading"><div><h3>${safe(model.name)}</h3><p>${safe(model.organization)} · #${rank} / ${peers.length} · ${('Overall')} <strong>${model[cohort].toFixed(2)}</strong></p></div><button class="model-details-close" aria-label="${('Collapse model details')}">${('Collapse')} ×</button></div><div class="model-metrics">${metrics}</div><div class="model-details-foot"><span>${('Equal category weights · Scores 0–100')}</span><a href="tasks.html#scoring">${('Scoring details')} ↗</a></div>`;
+    panel.innerHTML = `<div class="model-details-heading"><div><h3>${safe(model.name)}</h3><p>${safe(model.organization)} · #${rank} / ${peers.length} · ${('Overall')} <strong>${model[cohort].toFixed(2)}</strong></p></div><button class="model-details-close" aria-label="${('Collapse model details')}">${('Collapse')} ×</button></div><div class="model-metrics">${metrics}</div>`;
     panel.dataset.model = model.id;
     panel.hidden = false;
     openers.set(panel, button);

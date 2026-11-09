@@ -52,17 +52,11 @@ def panel(mode, category, coverage):
         cells = ''.join(f'<td>{fmt(category_score(model["id"], mode, key) if overall else SCORES[model["id"]][key])}</td>' for key in details)
         body += f'<tr data-ranked-model="{model["id"]}" data-score="{score}"><td>{row["rank"] if row["rank"] is not None else "—"}</td><th scope="row"><span class="experiment-model">{logo(model)}<span>{esc(model["name"])}<small>{esc(model["organization"])}</small></span></span></th><td><strong>{fmt(score)}</strong></td><td class="experiment-bar-cell"><span class="experiment-bar" aria-label="{esc(label)}: {fmt(score) + " out of 100" if score is not None else "In progress"}">{segments}</span></td>{cells}</tr>'
     heads = ''.join(f'<th scope="col">{esc(LABELS[key])}</th>' for key in details)
-    note = '' if overall else {
-        'optimization': {'all': 'Four conditions, equal weights.', 'wet': 'Three physical conditions, equal weights.', 'dry': 'Sim-4D, 0-shot; few-shot controls excluded.'}[mode],
-        'safety': 'Target attainment with at most one unsafe touch: 80% · All-three-repeat success: 20%.',
-        'robustness': 'Real drift 50% · Resin transfer 50%. Simulated drift is excluded.',
-        'multimodal': 'pKa 50% · Spectrum matching 50%.'}[category]
-    note_html = f'<p class="experiment-note">{note}</p>' if note else ''
     bar_head = f'<th scope="col">{"Contributions" if overall else "Score / 100"}</th>'
     ident = f'experiment-{mode}-{category}-{coverage}'
     visible = mode == 'wet' and overall and coverage == 'full'
     return f'''<section id="{ident}" data-ranking-panel data-mode="{mode}" data-category="{category}" data-coverage="{coverage}" aria-label="{MODES[mode]} · {label}" {'' if visible else 'hidden'}>
-    <div class="table-scroll experiment-table-scroll" role="region" tabindex="0" aria-label="{MODES[mode]} {label} scores"><table class="results-table experiment-table"><caption class="sr-only">{MODES[mode]} · {label}. Scores 0–100; equal scores share a rank.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Model</th><th scope="col">Score</th>{bar_head}{heads}</tr></thead><tbody>{body}</tbody></table></div>{note_html}</section>'''
+    <div class="table-scroll experiment-table-scroll" role="region" tabindex="0" aria-label="{MODES[mode]} {label} scores"><table class="results-table experiment-table"><caption class="sr-only">{MODES[mode]} · {label}. Scores 0–100; equal scores share a rank.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Model</th><th scope="col">Score</th>{bar_head}{heads}</tr></thead><tbody>{body}</tbody></table></div></section>'''
 
 
 def leaderboard_explorer():

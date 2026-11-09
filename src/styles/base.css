@@ -1953,14 +1953,8 @@ button {
   }
 }
 
-/* Keep protocol permalinks available without placing the old page beneath the catalogue. */
-.tasks-page .task-protocols:not(:target, :has(:target)),
-.tasks-page:has(.task-protocols:target, .task-protocols :target) .task-catalogue {
-  display: none;
-}
-
-.tasks-page .task-catalogue,
-.tasks-page #task-protocols {
+/* Task catalogue anchor spacing. */
+.tasks-page .task-catalogue {
   scroll-margin-top: 110px;
 }
 
