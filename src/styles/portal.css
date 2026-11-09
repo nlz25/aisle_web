@@ -835,3 +835,14 @@ body:not(.portal-ready) .portal {
     opacity: 0;
   }
 }
+
+.watch-aisle { pointer-events: auto; display: inline-flex; align-items: center; gap: 9px; margin-top: 18px; padding: 8px 14px; border: 1px solid #bcd5e340; border-radius: 999px; background: #15243170; color: #e3edf6; font: 400 16px/1.3 var(--serif); cursor: pointer; }
+.watch-aisle:hover { background: #243a4c; border-color: #bcd5e3a0; }
+.watch-aisle:focus-visible, .aisle-film-close:focus-visible { outline: 2px solid #c7dfff; outline-offset: 4px; }
+.aisle-film { width: min(1060px, calc(100vw - 32px)); max-width: none; max-height: 90svh; padding: 16px; border: 1px solid #8aaec650; border-radius: 16px; background: #0b121b; color: #edf5fc; box-shadow: 0 24px 100px #0009; }
+.aisle-film::backdrop { background: #02060de8; backdrop-filter: blur(8px); }
+.aisle-film-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+.aisle-film-head h2 { margin: 0; font: 400 22px/1.3 var(--serif); }
+.aisle-film-close { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #8aaec650; border-radius: 50%; background: transparent; color: inherit; font-size: 26px; cursor: pointer; }
+.aisle-film video { display: block; width: 100%; max-height: calc(90svh - 100px); background: #000; border-radius: 8px; }
+html:has(.aisle-film[open]) { overflow: hidden; }

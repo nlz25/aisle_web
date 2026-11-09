@@ -3,6 +3,7 @@ import './navigation.js?v=__ASSET_VERSION__';
 
 const entrance = document.getElementById('entrance');
 if (entrance) {
+  await import('./watch.js?v=__ASSET_VERSION__');
   await import('./portal.js?v=__ASSET_VERSION__');
   const { loadHandRig } = await import('./portal-hand.js?v=__ASSET_VERSION__');
   let research;

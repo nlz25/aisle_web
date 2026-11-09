@@ -19,6 +19,7 @@ def entrance():
       <div class="portal-grain network-grain" aria-hidden="true"></div>
       <div class="portal-heading wrap">
         <h1 id="portal-title">AI Scientists' <span class="portal-title-ending">Last Exam</span></h1>
+        <button class="watch-aisle" type="button" aria-haspopup="dialog" aria-controls="aisle-film"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 13 8 4 13.5Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Watch AISLE</button>
         {experiment_quotation()}
       </div>
         <div class="portal-globe" data-texture="assets/globe/base/earth-surface.webp" data-texture-hd="assets/globe/earth-surface-hd.webp" data-detail-base="assets/globe/base/earth-detail.webp" data-land-mask="assets/globe/earth-land-mask.webp" data-night="assets/globe/night-tiles/base.webp" data-night-tiles="assets/globe/night-tiles/manifest.json" data-detail="assets/globe/earth-detail-hd.webp">
@@ -41,4 +42,8 @@ def entrance():
           <span class="portal-tagline">Nature as the Verifier</span>
         </a>
       </div>
+      <dialog id="aisle-film" class="aisle-film" aria-labelledby="aisle-film-title">
+        <div class="aisle-film-head"><h2 id="aisle-film-title">Watch AISLE</h2><button type="button" class="aisle-film-close" aria-label="Close video">×</button></div>
+        <video controls playsinline preload="none" data-src="assets/experiments/aisle-intro.mp4" aria-label="AISLE introduction video"></video>
+      </dialog>
     </section>"""
