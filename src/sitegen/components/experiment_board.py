@@ -48,9 +48,15 @@ def panel(mode, category, coverage):
     for row in rows:
         model, score = row['model'], row['score']
         segments = ''.join(f'<span tabindex="0" data-module-score="{esc(LABELS[key])}: {value:.2f} / 100" data-module-label="{esc(LABELS[key])}" data-module-value="{value:.2f}" aria-label="{esc(LABELS[key])}: {value:.2f} out of 100" style="width:{value / len(keys):.8f}%;background:{CATEGORY_COLORS[key]}"></span>' for key, value in zip(keys, row['values']) if value is not None)
-        fmt = lambda value: 'In progress' if value is None else f'{value:.2f}'
-        cells = ''.join(f'<td>{fmt(category_score(model["id"], mode, key) if overall else SCORES[model["id"]][key])}</td>' for key in details)
-        body += f'<tr data-ranked-model="{model["id"]}" data-score="{score}"><td>{row["rank"] if row["rank"] is not None else "—"}</td><th scope="row"><span class="experiment-model">{logo(model)}<span>{esc(model["name"])}<small>{esc(model["organization"])}</small></span></span></th><td><strong>{fmt(score)}</strong></td><td class="experiment-bar-cell"><span class="experiment-bar" aria-label="{esc(label)}: {fmt(score) + " out of 100" if score is not None else "In progress"}">{segments}</span></td>{cells}</tr>'
+        unsupported = model['id'] in {'glm', 'deepseek'}
+        def fmt(value, field=category):
+            if value is not None:
+                return f'{value:.2f}'
+            if unsupported and mode == 'wet' and field in {'overall', 'multimodal', 'pka', 'spectrum'}:
+                return 'Multimodal not supported'
+            return 'In progress'
+        cells = ''.join(f'<td>{fmt(category_score(model["id"], mode, key) if overall else SCORES[model["id"]][key], key)}</td>' for key in details)
+        body += f'<tr data-ranked-model="{model["id"]}" data-score="{score}"><td>{row["rank"] if row["rank"] is not None else "—"}</td><th scope="row"><span class="experiment-model">{logo(model)}<span>{esc(model["name"])}<small>{esc(model["organization"])}</small></span></span></th><td><strong>{fmt(score)}</strong></td><td class="experiment-bar-cell"><span class="experiment-bar" aria-label="{esc(label)}: {fmt(score) + " out of 100" if score is not None else fmt(score)}">{segments}</span></td>{cells}</tr>'
     heads = ''.join(f'<th scope="col">{esc(LABELS[key])}</th>' for key in details)
     bar_head = f'<th scope="col">{"Contributions" if overall else "Score / 100"}</th>'
     ident = f'experiment-{mode}-{category}-{coverage}'
