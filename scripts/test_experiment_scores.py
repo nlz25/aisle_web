@@ -6,8 +6,9 @@ from sitegen.components.experiment_board import ranking,SCORES,MODES,leaderboard
 class Scores(unittest.TestCase):
  def test_frozen_results(self):
   self.assertAlmostEqual(ranking('wet')[1][0]['score'],41.193952056907015)
-  self.assertAlmostEqual(ranking('dry')[1][0]['score'],73.14814814814815)
-  self.assertAlmostEqual(SCORES['astra']['safety'],80*2/18)
+  self.assertAlmostEqual(ranking('dry')[1][0]['score'],73.6168888888889)
+  self.assertAlmostEqual(SCORES['astra']['safety'],24.975703703703704)
+  self.assertEqual(ranking('dry')[1][0]['model']['id'],'opus')
  def test_partial_coverage(self):
   rows=ranking('wet')[1]
   self.assertEqual(len(rows),9)

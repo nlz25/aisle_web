@@ -8,106 +8,107 @@
   ],
   "physicalExperiments": 4079,
   "evaluatedLabSites": 2,
-  "notes": "Separate wet-lab and dry-lab rankings, equal category weights. Missing coverage is In progress; no zero imputation or available-category reweighting. Simulated drift and few-shot controls excluded. Retrospective safety scoring allows one unsafe touch; original prompts retained.",
+  "notes": "Separate wet-lab and dry-lab rankings with equal category weights. Safety uses retrospective evaluator v2.1; original prompts and executions are unchanged. Incomplete coverage is In progress. Simulated drift and few-shot controls excluded.",
   "models": [
     {
       "id": "gpt",
       "name": "GPT 5.5",
       "organization": "OpenAI",
       "optimization": 16.458333333333332,
-      "safety": 55.55555555555556,
+      "safety": 42.59259259259259,
       "robustness": 73.26495431613432,
       "multimodal": 33.8585685212534,
       "wet": 41.193952056907015,
-      "dry": 73.14814814814815
+      "dry": 66.66666666666667
     },
     {
       "id": "glm",
       "name": "GLM 5.1",
       "organization": "Z.ai",
       "optimization": 13.587962962962962,
-      "safety": 34.44444444444444,
+      "safety": 16.666666666666664,
       "robustness": 65.27966327014181,
       "multimodal": null,
       "wet": null,
-      "dry": 62.592592592592595
+      "dry": 53.70370370370371
     },
     {
       "id": "qwen",
       "name": "Qwen 3.6 Plus",
       "organization": "Qwen",
       "optimization": 17.149930541417273,
-      "safety": 30.000000000000004,
+      "safety": 14.814814814814811,
       "robustness": 62.93219629723854,
       "multimodal": 17.47613972928945,
       "wet": 32.51942218931509,
-      "dry": 59.21296296296296
+      "dry": 51.62037037037037
     },
     {
       "id": "claude",
       "name": "Claude Sonnet 4.6",
       "organization": "Anthropic",
       "optimization": 0.0,
-      "safety": 38.88888888888889,
+      "safety": 22.222222222222218,
       "robustness": 53.42920022445662,
       "multimodal": 25.26657273980586,
       "wet": 26.23192432142083,
-      "dry": 53.68055555555556
+      "dry": 45.347222222222214
     },
     {
       "id": "gemini",
       "name": "Gemini 3.1 Pro Preview",
       "organization": "Google",
       "optimization": 18.98009395857592,
-      "safety": 26.66666666666667,
+      "safety": 16.440355555555552,
       "robustness": 33.414188527465384,
       "multimodal": 20.421205961843093,
       "wet": 24.271829482628135,
-      "dry": 60.78703703703704
+      "dry": 55.67388148148148
     },
     {
       "id": "deepseek",
       "name": "DeepSeek V4 Pro",
       "organization": "DeepSeek",
       "optimization": 4.60648148148148,
-      "safety": 26.66666666666667,
+      "safety": 13.842814814814814,
       "robustness": 48.41511418372267,
       "multimodal": null,
       "wet": null,
-      "dry": 47.90267823138292
+      "dry": 41.490752305456994
     },
     {
       "id": "kimi",
       "name": "Kimi K2.6",
       "organization": "Moonshot AI",
       "optimization": 0.0,
-      "safety": 30.000000000000004,
+      "safety": 11.111111111111109,
       "robustness": 40.65522825318096,
       "multimodal": 23.05593585220963,
       "wet": 21.23705470179686,
-      "dry": 38.333333333333336
+      "dry": 28.888888888888886
     },
     {
       "id": "astra",
       "name": "GPT-6-Astra",
       "organization": "OpenAI",
-      "safety": 8.88888888888889,
+      "safety": 24.975703703703704,
       "robustness": null,
       "multimodal": null,
       "wet": null,
-      "dry": 52.708333333333336,
+      "dry": 60.75174074074074,
       "optimization": null
     },
     {
       "id": "opus",
       "name": "Claude Opus 5.5",
       "organization": "Anthropic",
-      "safety": 47.77777777777777,
+      "safety": 50.937481481481484,
       "robustness": null,
       "multimodal": null,
       "wet": null,
-      "dry": 72.03703703703704,
+      "dry": 73.6168888888889,
       "optimization": null
     }
-  ]
+  ],
+  "scoringVersion": "safety-v2.1"
 }
