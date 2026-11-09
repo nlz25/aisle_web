@@ -24,7 +24,74 @@
     placementFrame = 0,
     revealSelection = false;
 
+  const allToggle = document.querySelector('.network-show-all');
+  const allFilms = document.getElementById('network-all-films');
+  const allLinks = plane.querySelector('.network-all-links');
+  let showAll = false;
+  allToggle.hidden = false;
+  const cards = network.institutions.filter(item => item.video).sort((a, b) => countries.get(a.country).lon - countries.get(b.country).lon).map(item => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'network-film-card';
+    button.dataset.film = item.id;
+    button.dataset.region = item.country;
+    button.setAttribute('aria-label', `Watch ${item.topic} — ${countries.get(item.country).en}`);
+    const image = document.createElement('img');
+    image.dataset.src = asset('experiments/' + item.video + '.webp');
+    image.alt = ''; image.width = 960; image.height = 516; image.decoding = 'async';
+    const meta = document.createElement('span'); meta.className = 'network-film-meta';
+    meta.textContent = `${countries.get(item.country).en} · ${item.duration}`;
+    const title = document.createElement('strong'); title.textContent = item.topic;
+    const play = document.createElement('span'); play.className = 'network-film-play'; play.textContent = '▷'; play.setAttribute('aria-hidden', 'true');
+    button.append(image, play, meta, title);
+    button.addEventListener('click', event => openFilm(event, item));
+    allFilms.append(button);
+    return button;
+  });
+
+  function placeAllFilms() {
+    const bounds = plane.getBoundingClientRect();
+    if (!bounds.width) return;
+    const markers = [...plane.querySelectorAll('.map-pin, .pin-label')]
+      .filter(node => node.getClientRects().length);
+    // Keep every film in one horizontal row, clear of the geographic markers.
+    const top = Math.max(...markers.map(node => node.getBoundingClientRect().bottom - bounds.top)) + 28;
+    allFilms.style.top = `${top}px`;
+    const bottom = top + allFilms.offsetHeight + 12;
+    stage.style.setProperty('--card-overflow', `${Math.ceil(Math.max(0, bottom - bounds.height))}px`);
+    allLinks.replaceChildren();
+    // A scrollable row uses the region labels on the cards instead of crossing connectors.
+    if (allFilms.scrollWidth > allFilms.clientWidth) return;
+    for (const card of cards) {
+      const pin = plane.querySelector(`.map-pin[data-country="${card.dataset.region}"]`).getBoundingClientRect();
+      const rect = card.getBoundingClientRect();
+      const px = pin.left + pin.width / 2 - bounds.left;
+      const py = pin.top + pin.height / 2 - bounds.top;
+      const ax = rect.left + rect.width / 2 - bounds.left;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      line.setAttribute('d', `M${px} ${py} L${ax} ${top}`);
+      allLinks.append(line);
+    }
+  }
+  function setAllFilms(value) {
+    showAll=value; allToggle.setAttribute('aria-pressed',String(value));
+    allToggle.textContent=value?'Show less':'Show all';
+    allFilms.hidden=!value; allLinks.toggleAttribute('hidden', !value);
+    plane.classList.toggle('show-all-films',value);
+    if(value){
+      allFilms.querySelectorAll('img').forEach(img=>{if(!img.hasAttribute('src'))img.src=img.dataset.src;});
+      inspector.hidden=true; cardLink.setAttribute('d','');
+      selectionStatus.textContent=`Showing all ${cards.length} research films.`;
+    }
+    schedulePlacement();
+  }
+  allToggle.addEventListener('click',()=>{
+    if(showAll){setAllFilms(false);selectCountry(plane.dataset.activeCountry || 'asia',false);}
+    else setAllFilms(true);
+  });
+
   function placeInspector() {
+    if (showAll) { placementFrame = 0; placeAllFilms(); return; }
     placementFrame = 0;
     const bounds = plane.getBoundingClientRect();
     const selectedPin = plane.querySelector('.map-pin[aria-pressed="true"]');
@@ -148,6 +215,7 @@
   function selectCountry(id, announce = true) {
     const country = countries.get(id);
     if (!country) return;
+    if (showAll) setAllFilms(false);
     revealSelection = announce;
     inspector.hidden = false;
     plane.dataset.activeCountry = id;
@@ -179,6 +247,7 @@
   }
   document.querySelectorAll('[data-country]').forEach(b => b.addEventListener('click', () => selectCountry(b.dataset.country)));
   document.getElementById('network').addEventListener('click', event => {
+    if (showAll) return;
     if (!(event.target instanceof Element) || event.target.closest('button, a, .network-inspector, .experiment-dialog')) return;
     selected = null;
     revealSelection = false;
@@ -190,14 +259,14 @@
     document.querySelectorAll('[data-country]').forEach(button => button.setAttribute('aria-pressed', 'false'));
     selectionStatus.textContent = 'Selection cleared.';
   });
-  function openFilm(event) {
-    if (!selected?.video) return;
+  function openFilm(event, item = selected) {
+    if (!item?.video) return;
     opener = event.currentTarget;
     error.hidden = true;
-    document.getElementById('experiment-title').textContent = (selected.topic);
-    document.getElementById('experiment-description').textContent = (selected.description);
-    video.poster = asset('experiments/' + selected.video + '.webp');
-    video.src = asset('experiments/' + selected.video + '.mp4');
+    document.getElementById('experiment-title').textContent = (item.topic);
+    document.getElementById('experiment-description').textContent = (item.description);
+    video.poster = asset('experiments/' + item.video + '.webp');
+    video.src = asset('experiments/' + item.video + '.mp4');
     dialog.showModal();
     video.play().catch(() => {});
   }
@@ -224,6 +293,7 @@
   const layoutObserver = new ResizeObserver(schedulePlacement);
   layoutObserver.observe(plane);
   layoutObserver.observe(inspector);
+  cards.forEach(card => layoutObserver.observe(card));
   document.addEventListener('aisle:viewchange', schedulePlacement);
   document.fonts.ready.then(schedulePlacement);
   selectCountry(selected.country, false);

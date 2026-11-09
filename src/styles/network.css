@@ -728,3 +728,18 @@
     transition: none !important;
   }
 }
+
+.network-heading { gap: 20px; flex-wrap: wrap; }
+.network-show-all { flex: none; padding: 10px 18px; border: 1px solid #a9c3d65c; border-radius: 999px; color: #e1edf6; background: #132331; font: inherit; font-size: 15px; cursor: pointer; }
+.network-show-all:hover, .network-show-all[aria-pressed="true"] { border-color: #e4c79b; color: #f3e5ce; }
+.network-all-films { position: absolute; left: 0; right: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(180px, 1fr); gap: 16px; overflow-x: auto; padding: 4px 0 12px; scroll-snap-type: x proximity; z-index: 6; scrollbar-color: #698297 #101923; }
+.network-all-films[hidden] { display: none; }
+.network-film-card { display: flex; flex-direction: column; position: relative; width: 100%; min-width: 0; align-self: stretch; scroll-snap-align: start; padding: 10px; border: 1px solid #9bb6cb50; border-radius: 12px; background: #0e1823f5; color: #edf5fb; text-align: left; cursor: pointer; pointer-events: auto; box-shadow: 0 10px 30px #0005; }
+.network-film-card img { display: block; width: 100%; height: auto; aspect-ratio: 960 / 516; object-fit: cover; border-radius: 6px; }
+.network-film-meta { display: block; margin-top: 10px; color: #a8bdcd; font-size: 12px; line-height: 1.4; }
+.network-film-card strong { display: block; margin-top: 4px; font: 500 17px/1.3 var(--serif); }
+.network-film-play { position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #07111dd9; color: white; font-size: 20px; }
+.network-film-card:hover { border-color: #e4c79b; }
+.network-film-card:focus-visible, .network-show-all:focus-visible { outline: 2px solid #d4eaff; outline-offset: 3px; }
+.network-all-links { z-index: 4; stroke: #b5ccdd80; }
+.show-all-films > .network-card-link:not(.network-all-links) { visibility: hidden; }

@@ -40,10 +40,11 @@ def network_hero():
     return f'''<section class="network-hero" id="network" aria-labelledby="network-title">
       <div class="network-atmosphere" aria-hidden="true"></div>
       <div class="network-shell wrap">
-        <div class="section-head network-heading"><h2 id="network-title" tabindex="-1">Global Research Network</h2></div>
+        <div class="section-head network-heading"><h2 id="network-title" tabindex="-1">Global Research Network</h2><button class="network-show-all" type="button" aria-pressed="false" aria-controls="network-all-films" hidden>Show all</button></div>
         <div class="network-country-nav" role="group" aria-label="Browse research locations">{"".join(countries)}</div>
         <div class="network-stage">
           <div class="network-map-plane" data-active-country="{first['country']}" style="--selection-x:{initial_x:.3f}%;--selection-y:{initial_y:.3f}%"><div class="world-map" aria-hidden="true"><img class="map-terrain" loading="lazy" decoding="async" src="assets/map/world.svg?v={map_version}" alt="" width="1200" height="560"><img class="map-illumination" loading="lazy" decoding="async" src="assets/map/world-lights.svg?v={map_version}" alt="" width="1200" height="560"><svg class="network-arcs" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid meet"><g class="network-flow-particles"></g></svg></div><svg class="network-card-link" aria-hidden="true"><path/></svg><div class="map-markers">{"".join(pins)}</div>
+          <div id="network-all-films" class="network-all-films" aria-label="All research films" hidden></div><svg class="network-all-links network-card-link" aria-hidden="true" hidden></svg>
           <aside id="network-inspector" class="network-inspector" aria-label="Research films">
             <div class="research-options" role="group" aria-label="Choose a research direction" hidden></div>
             <div id="network-pending" class="film-pending" hidden><h3 id="network-pending-location"></h3><p>Video coming soon</p></div>
