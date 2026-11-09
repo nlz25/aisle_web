@@ -12,6 +12,10 @@ import {
 const PREFIX = '/api/contribute',
   COOKIE = '__Host-aisle_session',
   MAX_ZIP = 25 * 1024 * 1024;
+const QUOTA_WINDOW = 24 * 3600;
+const SUBMISSION_LIMIT = 5;
+const UPLOAD_LIMIT = 10;
+const UPLOAD_BYTES_LIMIT = 100 * 1024 * 1024;
 const now = () => Math.floor(Date.now() / 1000);
 const random = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join('');
@@ -20,13 +24,14 @@ export const digest = async (text) =>
     x.toString(16).padStart(2, '0'),
   ).join('');
 class Failure extends Error {
-  constructor(status, message) {
+  constructor(status, message, retryAfter) {
     super(message);
     this.status = status;
+    this.retryAfter = retryAfter;
   }
 }
-const fail = (code, message) => {
-  throw new Failure(code, message);
+const fail = (code, message, retryAfter) => {
+  throw new Failure(code, message, retryAfter);
 };
 const json = (data, status = 200, headers = {}) =>
   Response.json(data, {
@@ -138,8 +143,52 @@ async function rate(env, key, limit) {
   )
     .bind(await digest(`${key}:${slot}`), now() + 7200)
     .first();
-  if (row.count > limit) fail(429, 'Too many requests. Please try again later.');
+  if (row.count > limit) fail(429, 'Too many requests.', Math.max(1, (slot + 1) * 3600 - now()));
 }
+
+async function quotaRetryAfter(env, userId, kind, timestamp, requestedBytes = 0) {
+  const { results } = await env.DB.prepare(
+    'SELECT created_at,byte_count FROM contribution_quota_events WHERE user_id=? AND kind=? AND created_at>? ORDER BY created_at',
+  ).bind(userId, kind, timestamp - QUOTA_WINDOW).all();
+  const countLimit = kind === 'submit' ? SUBMISSION_LIMIT : UPLOAD_LIMIT;
+  let count = results.length;
+  let usedBytes = results.reduce((total, event) => total + event.byte_count, 0);
+  let retryAt = null;
+  for (const event of results) {
+    if (count < countLimit && usedBytes + requestedBytes <= UPLOAD_BYTES_LIMIT) break;
+    count--;
+    usedBytes -= event.byte_count;
+    retryAt = event.created_at + QUOTA_WINDOW;
+  }
+  return retryAt === null ? null : Math.max(1, retryAt - now());
+}
+
+async function uploadBytes(req, env, userId) {
+  const length = req.headers.get('Content-Length');
+  // Reserve the maximum when the client streams without a known length.
+  const reserved = length === null ? MAX_ZIP : Number(length);
+  if (!Number.isSafeInteger(reserved) || reserved < 0) fail(400, 'Invalid ZIP size.');
+  if (reserved > MAX_ZIP) fail(413, 'ZIP files must be 25 MiB or less.');
+  const timestamp = now();
+  const id = crypto.randomUUID();
+  const reservation = await env.DB.prepare(
+    "INSERT INTO contribution_quota_events(id,user_id,kind,created_at,byte_count) SELECT ?,?,'upload',?,? FROM (" +
+    'SELECT COUNT(*) AS attempts,COALESCE(SUM(byte_count),0) AS used_bytes FROM contribution_quota_events ' +
+    "WHERE user_id=? AND kind='upload' AND created_at>?) WHERE attempts<? AND used_bytes+?<=?",
+  ).bind(id, userId, timestamp, reserved, userId, timestamp - QUOTA_WINDOW, UPLOAD_LIMIT, reserved, UPLOAD_BYTES_LIMIT).run();
+  if (!reservation.meta.changes) {
+    const retry = await quotaRetryAfter(env, userId, 'upload', timestamp, reserved);
+    fail(429, 'ZIP upload quota reached (10 attempts or 100 MiB in 24 hours).', retry ?? 1);
+  }
+
+  const data = await bytes(req, reserved);
+  if (data.byteLength !== reserved) {
+    await env.DB.prepare('UPDATE contribution_quota_events SET byte_count=? WHERE id=?')
+      .bind(data.byteLength, id).run();
+  }
+  return data;
+}
+
 const oauthCookie = '__Host-aisle_oauth';
 const secureCookie = (name, value, seconds) =>
   name + '=' + value + '; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=' + seconds;
@@ -638,7 +687,7 @@ async function route(req, env) {
     }
     if (req.headers.get('Content-Type') !== 'application/zip') fail(415, 'Upload a ZIP file.');
     const filename = uploadedPackageName(req);
-    const data = await bytes(req, MAX_ZIP);
+    const data = await uploadBytes(req, env, u.id);
     if (!hasZipDirectory(data)) fail(400, 'Expected a non-empty ZIP archive.');
     const key = `quarantine/${u.id}/${task.id}/${crypto.randomUUID()}.zip`;
     // Track incomplete uploads before writing to object storage, whose writes are separate from D1.
@@ -671,12 +720,22 @@ async function route(req, env) {
     if (!editableStates.includes(task.status)) fail(409, 'Task is already submitted.');
     if ((task.kind === 'wet' && !task.package_key) || (task.kind === 'dry' && !validPR(task.pr_url)))
       fail(400, 'Attach your ZIP package or GitHub PR before submitting.');
-    const result = await env.DB.prepare(
-      "UPDATE tasks SET status='submitted',updated_at=?,revision=revision+1 WHERE id=? AND user_id=? AND revision=?",
-    )
-      .bind(now(), task.id, u.id, task.revision)
-      .run();
-    if (!result.meta.changes) fail(409, 'Task changed. Reload and try again.');
+    const timestamp = now();
+    const [result] = await env.DB.batch([
+      env.DB.prepare(
+        "UPDATE tasks SET status='submitted',updated_at=?,revision=revision+1 WHERE id=? AND user_id=? AND revision=? " +
+        'AND (SELECT COUNT(*) FROM contribution_quota_events ' +
+        "WHERE user_id=? AND kind='submit' AND created_at>?)<?",
+      ).bind(timestamp, task.id, u.id, task.revision, u.id, timestamp - QUOTA_WINDOW, SUBMISSION_LIMIT),
+      env.DB.prepare(
+        "INSERT INTO contribution_quota_events(id,user_id,kind,created_at) SELECT ?,?,'submit',? WHERE changes()=1",
+      ).bind(crypto.randomUUID(), u.id, timestamp),
+    ]);
+    if (!result.meta.changes) {
+      const retry = await quotaRetryAfter(env, u.id, 'submit', timestamp);
+      if (retry !== null) fail(429, 'Review submission quota reached (5 submissions in 24 hours).', retry);
+      staleTask();
+    }
     return json({ ok: true });
   }
   fail(405, 'Method not allowed.');
@@ -738,6 +797,7 @@ export default {
       return json(
         { error: e instanceof Failure ? e.message : 'Service unavailable. Please try again.' },
         e instanceof Failure ? e.status : 500,
+        e instanceof Failure && e.retryAfter ? { 'Retry-After': String(e.retryAfter) } : {},
       );
     }
   },
@@ -747,6 +807,8 @@ export default {
         env.DB.prepare(`DELETE FROM ${t} WHERE expires_at<?`).bind(now()),
       ),
     );
+    await env.DB.prepare('DELETE FROM contribution_quota_events WHERE created_at<=?')
+      .bind(now() - QUOTA_WINDOW).run();
     const { results } = await env.DB.prepare(
       'SELECT key FROM package_gc WHERE delete_after<? AND NOT EXISTS(SELECT 1 FROM tasks WHERE package_key=package_gc.key) ORDER BY delete_after LIMIT 100',
     )

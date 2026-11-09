@@ -27,7 +27,11 @@ async function api(path, { method = 'GET', data, file } = {}) {
     const message = response.status === 404 || (response.ok && !payload)
       ? 'The contribution service is unavailable. Please try again later or contact the AISLE team.'
       : 'The request could not be completed. Please try again.';
-    throw new ApiError(response.status, payload?.error || message);
+    const retry = Number(response.headers.get('Retry-After'));
+    const retryMessage = response.status === 429 && Number.isFinite(retry) && retry > 0
+      ? ' Try again after ' + new Date(Date.now() + retry * 1000).toLocaleString() + '.'
+      : '';
+    throw new ApiError(response.status, (payload?.error || message) + retryMessage);
   }
   return payload;
 }

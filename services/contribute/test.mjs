@@ -477,6 +477,62 @@ test('GitHub OAuth, owner-scoped tasks and ZIPs, and administrator MFA', { timeo
   await worker.scheduled({}, env);
   assert.equal(objects.size, 0);
 
+  const makeDraft = async (actor, kind) => '/tasks/' + (await (await expect(request('/tasks', {
+    ...actor, method: 'POST', data: { ...data, kind },
+  }), 201)).json()).id;
+  const sendZip = (target, actor, archive = zip) => request(target + '/package', { ...actor, method: 'PUT', archive });
+  const submit = (target, actor) => request(target + '/submit', { ...actor, method: 'POST' });
+  const windowSeconds = 86400;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const assertRetry = (response, upper = windowSeconds, lower = upper - 20) => {
+    const delay = Number(response.headers.get('Retry-After'));
+    assert.ok(delay >= lower && delay <= upper, 'Unexpected Retry-After: ' + delay);
+  };
+  const expireOne = (actor, kind) => DB.prepare(
+    'UPDATE contribution_quota_events SET created_at=? WHERE id=(' +
+    'SELECT id FROM contribution_quota_events WHERE user_id=? AND kind=? ORDER BY created_at LIMIT 1)',
+  ).bind(timestamp - windowSeconds - 1, actor.user.id, kind).run();
+
+  const wetQuotaTask = await makeDraft(other, 'wet');
+  // Nine invalid ZIPs use the remaining attempts after the uploaded and discarded draft.
+  for (let i = 0; i < 9; i++) await expect(sendZip(wetQuotaTask, other, zip.subarray(0, 25)), 400);
+  const attemptsExceeded = await expect(sendZip(wetQuotaTask, other), 429);
+  assertRetry(attemptsExceeded);
+  assert.equal(objects.size, 0);
+  await expireOne(other, 'upload');
+  await expect(sendZip(wetQuotaTask, other), 200);
+  await expect(submit(wetQuotaTask, other), 200);
+
+  const candidates = await Promise.all(Array.from({ length: 4 }, async (_, index) => {
+    const candidate = await makeDraft(other, 'dry');
+    await expect(request(candidate, {
+      ...other, method: 'PATCH', data: { pr_url: 'https://github.com/aisle/tasks/pull/' + (index + 2) },
+    }), 200);
+    return candidate;
+  }));
+  const submissions = await Promise.all(candidates.map(candidate => submit(candidate, other)));
+  assert.deepEqual(submissions.map(response => response.status).sort(), [200, 200, 200, 429]);
+  const blockedIndex = submissions.findIndex(response => response.status === 429);
+  assertRetry(submissions[blockedIndex]);
+  await expect(request('/admin' + dryPath + '?revision=' + submittedDry.revision, { ...admin, method: 'DELETE' }), 200);
+  await expect(submit(candidates[blockedIndex], other), 429);
+  await expireOne(other, 'submit');
+  await expect(submit(candidates[blockedIndex], other), 200);
+
+  const byteQuotaTask = await makeDraft(admin, 'wet');
+  const mib = 1024 * 1024;
+  await DB.batch([2400, 1800, 1200, 600].map(age => DB.prepare(
+    "INSERT INTO contribution_quota_events(id,user_id,kind,created_at,byte_count) VALUES (?,?,'upload',?,?)",
+  ).bind(crypto.randomUUID(), reviewer.user.id, timestamp - age, 25 * mib)));
+  const bytesExceeded = await expect(sendZip(byteQuotaTask, admin), 429);
+  assertRetry(bytesExceeded, windowSeconds - 2400);
+  await expireOne(reviewer, 'upload');
+  await expect(sendZip(byteQuotaTask, admin), 200);
+  const byteQuota = await DB.prepare(
+    "SELECT SUM(byte_count) AS total FROM contribution_quota_events WHERE user_id=? AND kind='upload' AND created_at>?",
+  ).bind(reviewer.user.id, timestamp - windowSeconds).first();
+  assert.equal(byteQuota.total, 75 * mib + zip.byteLength);
+
   await expect(request('/auth/logout', { method: 'POST', cookie: other.cookie }), 200);
   await expect(request('/me', { cookie: other.cookie }), 401);
   const audit = await DB.prepare(
