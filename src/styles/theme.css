@@ -805,13 +805,13 @@ body {
   .brand-full-name { font-size: 16px; white-space: normal; max-width: 170px; }
 }
 
-/* Repository shortcut; show its label in the expanded mobile menu. */
-.nav-github { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 28px; min-height: 32px; }
-.nav-github svg { flex: none; }
-.nav-github-label { display: none; }
+/* Community and repository shortcuts; show their labels in the expanded mobile menu. */
+.nav-social { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 28px; min-height: 32px; }
+.nav-social svg { flex: none; }
+.nav-social-label { display: none; }
 @media (max-width: 780px) {
-  .nav-github { justify-content: flex-start; }
-  .nav-github-label { display: inline; }
+  .nav-social { justify-content: flex-start; }
+  .nav-social-label { display: inline; }
 }
 @media (min-width: 781px) and (max-width: 1000px) {
   .header-inner .nav-links { gap: 12px; font-size: 15px; }
