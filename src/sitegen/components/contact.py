@@ -3,6 +3,7 @@
 from urllib.parse import quote
 
 from ..context import esc
+from .layout import DISCORD_URL
 
 
 CONTACT_EMAIL = "aisle.science@gmail.com"
@@ -16,6 +17,7 @@ def contact():
         <p>Contribute experiments, connect your lab, or collaborate on AI evaluation.</p>
       </div>
       <div class="join-actions">
+        <a class="join-email-button" href="{DISCORD_URL}" target="_blank" rel="noopener noreferrer">Join our Discord ↗</a>
         <a class="join-email-button" href="{CONTACT_MAILTO}">Email us</a>
         <a class="join-email-address" href="{CONTACT_MAILTO}">{CONTACT_EMAIL}</a>
       </div>
