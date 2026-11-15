@@ -1,6 +1,6 @@
 # Featured team
 
-`data/team.json` stores four groups rendered by `src/sitegen/components/team.py`.
+`data/team.json` stores five groups rendered by `src/sitegen/components/team.py`.
 Members precede the highlighted lead in each group. The homepage has a single
 Team section, without separate Leaders or Core Contributors sections.
 
@@ -16,3 +16,5 @@ Gerbrand Ceder's affiliation was checked against
 https://vcresearch.berkeley.edu/faculty/gerbrand-ceder.
 
 Each institution now has one logo and a horizontal member list; names wrap on smaller screens. Gan Zhang was removed at the owner’s request.
+
+November 15 addition from authors.md: University of Toronto — Han Hao, Yang Bai, Zijian Zhang, then highlighted Alán Aspuru Guzik, using UofT.webp. This display emphasis does not designate a corresponding-author role.

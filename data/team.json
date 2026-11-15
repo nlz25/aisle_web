@@ -62,6 +62,27 @@
       ],
       "logo": "UCBerkeley.webp",
       "leader_first": true
+    },
+    {
+      "leader": {
+        "name": "Alán Aspuru Guzik",
+        "affiliation": "University of Toronto"
+      },
+      "members": [
+        {
+          "name": "Han Hao",
+          "affiliation": "University of Toronto"
+        },
+        {
+          "name": "Yang Bai",
+          "affiliation": "University of Toronto"
+        },
+        {
+          "name": "Zijian Zhang",
+          "affiliation": "University of Toronto"
+        }
+      ],
+      "logo": "UofT.webp"
     }
   ]
 }
