@@ -47,7 +47,10 @@ def results_data():
 
 
 def shell(page, title, description, body, version, *, site_prefix="", origin="https://aisle.science"):
-    url = f"{origin}/{page}"
+    url = f"{origin}/" if page == "index.html" else f"{origin}/{page}"
+    seo_title = "AISLE: AI Scientists' Last Exam" if page == "index.html" else f"{title} | AISLE"
+    structured = json.dumps({"@context": "https://schema.org", "@type": "WebSite", "@id": f"{origin}/#website", "url": f"{origin}/", "name": "AISLE", "alternateName": "AI Scientists' Last Exam", "description": description, "inLanguage": "en"}, ensure_ascii=False).replace("<", "\\u003c")
+    structured_tag = f'<script type="application/ld+json">{structured}</script>' if page == "index.html" else ""
     portal = page == "index.html"
     contribute_page = page in CONTRIBUTE_PAGES
     workspace = contribute_page and page != "contribute.html"
@@ -79,11 +82,13 @@ def shell(page, title, description, body, version, *, site_prefix="", origin="ht
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   {workspace_head}
-  <title>{esc(title)} · AISLE</title>
+  <title>{esc(seo_title)}</title>
   <meta name="description" content="{esc(description)}">
   <meta name="theme-color" content="#10131a">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="{esc(title)} · AISLE">
+  <meta property="og:site_name" content="AISLE">
+  {structured_tag}
+  <meta property="og:title" content="{esc(seo_title)}">
   <meta property="og:description" content="{esc(description)}">
   <meta property="og:url" content="{url}">
   <meta name="twitter:card" content="summary">

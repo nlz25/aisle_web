@@ -19,7 +19,12 @@ from sitegen.pages.leaderboard import leaderboard
 from sitegen.pages.tasks import tasks
 from sitegen.pages.contribute import contribute, contributor, contribute_admin, workspace_moved
 
-DESCRIPTION = "AISLE evaluates scientific decisions through experimental feedback. Explore benchmark results, experimental tasks and scoring."
+DESCRIPTION = "AISLE (AI Scientists' Last Exam) benchmarks AI scientists through real wet-lab experiments and simulations. Explore tasks, scores and the leaderboard."
+PAGE_DESCRIPTIONS = {
+    "leaderboard.html": "Compare AI scientists on AISLE's wet- and dry-experiment leaderboards, covering optimization, safety, robustness and multimodal reasoning.",
+    "tasks.html": "Explore AISLE benchmark tasks and scoring: colour matching, safety constraints, pipetting robustness, pKa inference and spectrum matching.",
+    "contribute.html": "Contribute experiments and connect your laboratory to AISLE, the AI Scientists' Last Exam benchmark for scientific agents.",
+}
 WORKSPACE_OUTPUT = ROOT / "services/contribute/.wrangler/workspace"
 
 
@@ -128,8 +133,11 @@ def main():
         else:
             content = render()
         (DIST / filename).write_text(
-            shell(filename, title, DESCRIPTION, content, version), encoding="utf-8"
+            shell(filename, title, PAGE_DESCRIPTIONS.get(filename, DESCRIPTION), content, version), encoding="utf-8"
         )
+    public_urls = ["https://aisle.science/", "https://aisle.science/leaderboard.html", "https://aisle.science/tasks.html", "https://aisle.science/contribute.html"]
+    (DIST / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + ''.join(f'  <url><loc>{url}</loc></url>\n' for url in public_urls) + '</urlset>\n')
+    (DIST / "robots.txt").write_text("User-agent: *\nAllow: /\n\nSitemap: https://aisle.science/sitemap.xml\n")
     (DIST / "build.json").write_text(
         json.dumps({"asset_version": version, "pages": len(pages)}) + "\n"
     )

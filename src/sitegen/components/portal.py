@@ -19,6 +19,7 @@ def entrance():
       <div class="portal-grain network-grain" aria-hidden="true"></div>
       <div class="portal-heading wrap">
         <h1 id="portal-title">AI Scientists' <span class="portal-title-ending">Last Exam</span></h1>
+        <p class="portal-description">AISLE benchmarks AI scientists through real wet-lab experiments and simulations.</p>
         <button class="watch-aisle" type="button" aria-haspopup="dialog" aria-controls="aisle-film"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 13 8 4 13.5Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Watch AISLE</button>
         {experiment_quotation()}
       </div>

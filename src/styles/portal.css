@@ -846,3 +846,11 @@ body:not(.portal-ready) .portal {
 .aisle-film-close { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #8aaec650; border-radius: 50%; background: transparent; color: inherit; font-size: 26px; cursor: pointer; }
 .aisle-film video { display: block; width: 100%; max-height: calc(90svh - 100px); background: #000; border-radius: 8px; }
 html:has(.aisle-film[open]) { overflow: hidden; }
+
+.portal-description {
+  max-width: 760px;
+  margin: 16px auto 0;
+  color: #b5c5d5;
+  font-size: clamp(14px, 1.4vw, 18px);
+  line-height: 1.5;
+}
